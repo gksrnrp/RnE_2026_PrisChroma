@@ -13,6 +13,41 @@
 
 ---
 
+## 코드 실행
+
+**모든 명령은 `src/` 안에서 실행합니다.** 모듈들이 서로를 직접 import하기 때문에
+다른 폴더에서 실행하면 `ModuleNotFoundError`가 납니다.
+
+```bash
+cd src
+pip install -r ../requirements.txt
+```
+
+두 색 보정 실행:
+
+```bash
+python two_color_demo.py --color-a 220 50 50 --color-b 60 160 60     --type deutan --severity 0.8     --original-threshold 20 --confusion-threshold 15 --target-threshold 15
+```
+
+주변 색과의 재혼동까지 막으려면 `--palette` 에 R G B 를 3개씩 이어서 넣습니다.
+
+자동 테스트 (37개, 약 30초):
+
+```bash
+python -m unittest -q
+```
+
+탐색 안정성 벤치마크 (수 분 소요, 결과는 `results/`에 보관):
+
+```bash
+python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
+```
+
+연구 계획과 알고리즘 설명은 [docs/research-plan.txt](docs/research-plan.txt),
+코드 리뷰·검증 기록은 [docs/code-review.md](docs/code-review.md)에 있습니다.
+
+---
+
 ## 팀원용 — 처음 한 번만 하는 설정
 
 1. **GitHub 계정 만들기** → https://github.com/signup

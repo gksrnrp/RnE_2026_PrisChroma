@@ -1,2 +1,1 @@
-# 이 프로젝트에서 쓰는 파이썬 패키지를 여기에 적습니다.
-# 예: numpy, pandas, matplotlib
+numpy>=2.0

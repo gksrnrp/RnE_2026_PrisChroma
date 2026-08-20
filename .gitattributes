@@ -1,0 +1,13 @@
+# 팀원마다 OS가 달라도 저장소 안의 줄바꿈은 LF로 통일한다.
+# 없으면 내용을 안 고친 파일도 "전체 줄 변경"으로 보여 충돌이 잦아진다.
+* text=auto eol=lf
+
+# 바이너리로 취급해 줄바꿈 변환을 하지 않을 파일들
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.xlsx binary
+*.hwp binary
+*.hwpx binary
