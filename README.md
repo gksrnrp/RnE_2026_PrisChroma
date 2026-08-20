@@ -1,6 +1,8 @@
-# R&E 프로젝트
+# 적록색약자를 위한 개인화 선택적 AI 색보정
 
-> 연구 주제 / 한 줄 설명을 여기에 적어주세요.
+혼동 상대가 있는 색만 판정하고, 사용자 시뮬레이션에서 구별 가능한 가장
+가까운 색으로 이동시키는 R&E 2026 프로젝트입니다. 현재 규칙 기반 두 색
+baseline을 구현·검증했으며 AI 단계는 아직 시작하지 않았습니다.
 
 ## 폴더 구조
 
@@ -31,13 +33,13 @@ python two_color_demo.py --color-a 220 50 50 --color-b 60 160 60     --type deut
 
 주변 색과의 재혼동까지 막으려면 `--palette` 에 R G B 를 3개씩 이어서 넣습니다.
 
-자동 테스트 (37개, 약 30초):
+자동 테스트 (41개, 현재 환경에서 약 1분 30초):
 
 ```bash
 python -m unittest -q
 ```
 
-탐색 안정성 벤치마크 (수 분 소요, 결과는 `results/`에 보관):
+탐색 안정성 벤치마크 (현재 환경에서 약 8분, 결과는 `results/`에 보관):
 
 ```bash
 python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json

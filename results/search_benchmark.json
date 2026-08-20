@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-20T16:27:41.120893+09:00",
+  "generated_at": "2026-08-20T17:30:14.443975+09:00",
   "environment": {
     "python": "3.13.0 (tags/v3.13.0:60403a5, Oct  7 2024, 09:38:07) [MSC v.1941 64 bit (AMD64)]",
     "numpy": "2.4.4",
@@ -23,10 +23,11 @@
   },
   "summary": {
     "median_relative_spread_percent": 0.0,
-    "mean_relative_spread_percent": 0.4313085106019873,
-    "max_relative_spread_percent": 8.559835723784229,
-    "pairs_over_5_percent": 1,
-    "nonmonotonic_pairs": 1
+    "mean_relative_spread_percent": 0.017556446297625712,
+    "max_relative_spread_percent": 0.5266933889287714,
+    "pairs_over_5_percent": 0,
+    "undefined_spread_pairs": 0,
+    "nonmonotonic_pairs": 0
   },
   "pairs": [
     {
@@ -372,56 +373,56 @@
       ],
       "original_distance": 54.60926424019081,
       "simulated_distance": 9.402235570884384,
-      "relative_spread_percent": 0.8369931911724329,
+      "relative_spread_percent": 0.0,
       "worsened_when_finer": false,
       "results": {
         "0.02": {
           "success": true,
-          "strategy": "B_only",
+          "strategy": "both",
           "corrected_A": [
-            15,
-            203,
-            238
-          ],
-          "corrected_B": [
-            229,
-            8,
-            213
-          ],
-          "total_color_change": 0.06319164242281795,
-          "simulated_distance": 15.010979343371357
-        },
-        "0.01": {
-          "success": true,
-          "strategy": "B_only",
-          "corrected_A": [
-            15,
+            16,
             203,
             238
           ],
           "corrected_B": [
             226,
-            9,
-            219
+            3,
+            221
           ],
-          "total_color_change": 0.06274648431975208,
-          "simulated_distance": 15.005735919103632
+          "total_color_change": 0.06264804930852666,
+          "simulated_distance": 15.000129280950254
         },
-        "0.005": {
+        "0.01": {
           "success": true,
-          "strategy": "B_only",
+          "strategy": "both",
           "corrected_A": [
-            15,
+            16,
             203,
             238
           ],
           "corrected_B": [
-            225,
-            5,
-            223
+            226,
+            3,
+            221
           ],
-          "total_color_change": 0.06266712287128166,
-          "simulated_distance": 15.00701220264107
+          "total_color_change": 0.06264804930852666,
+          "simulated_distance": 15.000129280950254
+        },
+        "0.005": {
+          "success": true,
+          "strategy": "both",
+          "corrected_A": [
+            16,
+            203,
+            238
+          ],
+          "corrected_B": [
+            226,
+            3,
+            221
+          ],
+          "total_color_change": 0.06264804930852666,
+          "simulated_distance": 15.000129280950254
         }
       }
     },
@@ -636,56 +637,56 @@
       ],
       "original_distance": 22.383126056639767,
       "simulated_distance": 6.3238582635168274,
-      "relative_spread_percent": 2.8191374195365384,
-      "worsened_when_finer": true,
+      "relative_spread_percent": 0.0,
+      "worsened_when_finer": false,
       "results": {
         "0.02": {
           "success": true,
-          "strategy": "A_only",
+          "strategy": "both",
           "corrected_A": [
-            56,
-            219,
-            136
+            17,
+            221,
+            135
           ],
           "corrected_B": [
             226,
             217,
-            80
+            79
           ],
-          "total_color_change": 0.0696332293453335,
-          "simulated_distance": 15.015163508192966
+          "total_color_change": 0.06655408301436656,
+          "simulated_distance": 15.001846548458063
         },
         "0.01": {
           "success": true,
           "strategy": "both",
           "corrected_A": [
-            13,
-            223,
-            132
-          ],
-          "corrected_B": [
-            229,
-            217,
-            68
-          ],
-          "total_color_change": 0.06772399680927743,
-          "simulated_distance": 15.00041975178259
-        },
-        "0.005": {
-          "success": true,
-          "strategy": "A_only",
-          "corrected_A": [
-            46,
-            217,
-            132
+            17,
+            221,
+            135
           ],
           "corrected_B": [
             226,
             217,
-            80
+            79
           ],
-          "total_color_change": 0.06897439651325694,
-          "simulated_distance": 15.001804042653696
+          "total_color_change": 0.06655408301436656,
+          "simulated_distance": 15.001846548458063
+        },
+        "0.005": {
+          "success": true,
+          "strategy": "both",
+          "corrected_A": [
+            17,
+            221,
+            135
+          ],
+          "corrected_B": [
+            226,
+            217,
+            79
+          ],
+          "total_color_change": 0.06655408301436656,
+          "simulated_distance": 15.001846548458063
         }
       }
     },
@@ -707,51 +708,51 @@
       "results": {
         "0.02": {
           "success": true,
-          "strategy": "A_only",
+          "strategy": "both",
           "corrected_A": [
-            91,
+            92,
             214,
             138
           ],
           "corrected_B": [
             172,
             196,
-            18
+            17
           ],
-          "total_color_change": 0.005424083919432764,
-          "simulated_distance": 15.022019917955474
+          "total_color_change": 0.005385590773362992,
+          "simulated_distance": 15.022041462623314
         },
         "0.01": {
           "success": true,
-          "strategy": "A_only",
+          "strategy": "both",
           "corrected_A": [
-            91,
+            92,
             214,
             138
           ],
           "corrected_B": [
             172,
             196,
-            18
+            17
           ],
-          "total_color_change": 0.005424083919432764,
-          "simulated_distance": 15.022019917955474
+          "total_color_change": 0.005385590773362992,
+          "simulated_distance": 15.022041462623314
         },
         "0.005": {
           "success": true,
-          "strategy": "A_only",
+          "strategy": "both",
           "corrected_A": [
-            91,
+            92,
             214,
             138
           ],
           "corrected_B": [
             172,
             196,
-            18
+            17
           ],
-          "total_color_change": 0.005424083919432764,
-          "simulated_distance": 15.022019917955474
+          "total_color_change": 0.005385590773362992,
+          "simulated_distance": 15.022041462623314
         }
       }
     },
@@ -1164,40 +1165,40 @@
       ],
       "original_distance": 56.82266806650629,
       "simulated_distance": 10.577870022885543,
-      "relative_spread_percent": 0.19659559463764772,
+      "relative_spread_percent": 0.0,
       "worsened_when_finer": false,
       "results": {
         "0.02": {
           "success": true,
-          "strategy": "A_only",
+          "strategy": "both",
           "corrected_A": [
-            215,
-            105,
+            214,
+            106,
             112
           ],
           "corrected_B": [
             103,
             160,
-            4
+            3
           ],
-          "total_color_change": 0.024845592503073166,
-          "simulated_distance": 15.026417675826163
+          "total_color_change": 0.02479684300212178,
+          "simulated_distance": 15.021690392520677
         },
         "0.01": {
           "success": true,
-          "strategy": "A_only",
+          "strategy": "both",
           "corrected_A": [
-            215,
-            105,
+            214,
+            106,
             112
           ],
           "corrected_B": [
             103,
             160,
-            4
+            3
           ],
-          "total_color_change": 0.024845592503073166,
-          "simulated_distance": 15.026417675826163
+          "total_color_change": 0.02479684300212178,
+          "simulated_distance": 15.021690392520677
         },
         "0.005": {
           "success": true,
@@ -1626,24 +1627,24 @@
       ],
       "original_distance": 71.79498429515596,
       "simulated_distance": 14.066194559034358,
-      "relative_spread_percent": 8.559835723784229,
+      "relative_spread_percent": 0.0,
       "worsened_when_finer": false,
       "results": {
         "0.02": {
           "success": true,
-          "strategy": "A_only",
+          "strategy": "both",
           "corrected_A": [
-            224,
-            106,
+            223,
+            107,
             126
           ],
           "corrected_B": [
-            46,
+            47,
             200,
             99
           ],
-          "total_color_change": 0.005409550398379077,
-          "simulated_distance": 15.053481391410221
+          "total_color_change": 0.004983012697387406,
+          "simulated_distance": 15.004125594478175
         },
         "0.01": {
           "success": true,

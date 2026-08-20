@@ -2,8 +2,9 @@
 
 초기 baseline은 OKLab radial grid로 넓게 탐색한 뒤, 이동량이 작은 여러
 후보 주변의 8-bit RGB 정수색을 합쳐 다시 확인하는 결정론적 multi-start
-탐색을 사용한다. 반환되는 결과는 연속 공간의 수학적 전역 최적해가 아니라,
-지정된 탐색과 정밀화 범위에서 발견한 최소 변화 해이다.
+탐색을 사용한다. 양쪽 이동은 개선이 멈출 때까지 새 해 주변을 반복 탐색한다.
+반환되는 결과는 연속 공간의 수학적 전역 최적해가 아니라, 지정된 탐색과
+정밀화 범위에서 발견한 최소 변화 해이다.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ _SINGLE_RGB_REFINEMENT_RADIUS = 16
 _PAIR_RGB_REFINEMENT_RADIUS = 4
 _SINGLE_REFINEMENT_STARTS = 16
 _PAIR_REFINEMENT_STARTS = 3
+_PAIR_REFINEMENT_MAX_PASSES = 20
 _RECONFUSION_CANDIDATE_CHUNK = 1024
 _RECONFUSION_PALETTE_CHUNK = 128
 
@@ -383,11 +385,11 @@ def _refine_single_candidates(
     return initial, int(rgb_candidates.shape[0])
 
 
-def _refine_pair_candidates(
-    initials: Sequence[dict[str, object]],
+def _search_pair_pool(
+    rgb_a: np.ndarray,
+    rgb_b: np.ndarray,
+    initial: dict[str, object],
     *,
-    original_a: np.ndarray,
-    original_b: np.ndarray,
     origin_a: np.ndarray,
     origin_b: np.ndarray,
     cvd_type: str,
@@ -395,35 +397,8 @@ def _refine_pair_candidates(
     target: float,
     palette_lab: np.ndarray,
     pair_chunk_size: int,
-) -> tuple[dict[str, object], int, int]:
-    """여러 양쪽 이동 해 주변의 RGB cube를 합쳐 함께 재탐색한다."""
-    if not initials:
-        raise ValueError("양쪽 이동 정밀 탐색에는 초기 후보가 필요합니다.")
-    initial = min(
-        initials,
-        key=lambda result: float(result["total_color_change"]),
-    )
-    rgb_a = np.unique(
-        np.concatenate(
-            [
-                _rgb_cube(result["corrected_A"], _PAIR_RGB_REFINEMENT_RADIUS)
-                for result in initials
-            ],
-            axis=0,
-        ),
-        axis=0,
-    )
-    rgb_b = np.unique(
-        np.concatenate(
-            [
-                _rgb_cube(result["corrected_B"], _PAIR_RGB_REFINEMENT_RADIUS)
-                for result in initials
-            ],
-            axis=0,
-        ),
-        axis=0,
-    )
-    count_a, count_b = int(rgb_a.shape[0]), int(rgb_b.shape[0])
+) -> dict[str, object]:
+    """두 RGB 후보 집합에서 현재 해보다 작은 양쪽 이동 해를 찾는다."""
     oklab_a = _srgb_array_to_oklab(rgb_a)
     oklab_b = _srgb_array_to_oklab(rgb_b)
     movement_a = np.linalg.norm(oklab_a - origin_a, axis=1)
@@ -435,7 +410,7 @@ def _refine_pair_candidates(
     moving_a = np.flatnonzero((movement_a > _EPSILON) & safe_a)
     moving_b = np.flatnonzero((movement_b > _EPSILON) & safe_b)
     if not moving_a.size or not moving_b.size:
-        return initial, count_a, count_b
+        return initial
 
     best_cost = float(initial["total_color_change"])
     best_pair: tuple[int, int, float] | None = None
@@ -464,22 +439,102 @@ def _refine_pair_candidates(
         )
 
     if best_pair is None:
-        return initial, count_a, count_b
+        return initial
     index_a, index_b, separation = best_pair
-    return (
-        _make_result(
-            "both",
-            rgb_a[index_a],
-            rgb_b[index_b],
-            oklab_a[index_a],
-            oklab_b[index_b],
-            origin_a,
-            origin_b,
-            separation,
-        ),
-        count_a,
-        count_b,
+    return _make_result(
+        "both",
+        rgb_a[index_a],
+        rgb_b[index_b],
+        oklab_a[index_a],
+        oklab_b[index_b],
+        origin_a,
+        origin_b,
+        separation,
     )
+
+
+def _refine_pair_candidates(
+    initials: Sequence[dict[str, object]],
+    *,
+    origin_a: np.ndarray,
+    origin_b: np.ndarray,
+    cvd_type: str,
+    severity: float,
+    target: float,
+    palette_lab: np.ndarray,
+    pair_chunk_size: int,
+) -> tuple[dict[str, object], int, int, int]:
+    """multi-start 해를 합친 뒤 작은 RGB cube로 수렴할 때까지 정밀화한다."""
+    if not initials:
+        raise ValueError("양쪽 이동 정밀 탐색에는 초기 후보가 필요합니다.")
+    both_initials = [result for result in initials if result["strategy"] == "both"]
+    if not both_initials:
+        raise ValueError("양쪽 이동 정밀 탐색에는 both 초기 후보가 필요합니다.")
+    current = min(
+        both_initials,
+        key=lambda result: float(result["total_color_change"]),
+    )
+    rgb_a = np.unique(
+        np.concatenate(
+            [
+                _rgb_cube(result["corrected_A"], _PAIR_RGB_REFINEMENT_RADIUS)
+                for result in initials
+            ],
+            axis=0,
+        ),
+        axis=0,
+    )
+    rgb_b = np.unique(
+        np.concatenate(
+            [
+                _rgb_cube(result["corrected_B"], _PAIR_RGB_REFINEMENT_RADIUS)
+                for result in initials
+            ],
+            axis=0,
+        ),
+        axis=0,
+    )
+    count_a, count_b = int(rgb_a.shape[0]), int(rgb_b.shape[0])
+    passes = 1
+    current = _search_pair_pool(
+        rgb_a,
+        rgb_b,
+        current,
+        origin_a=origin_a,
+        origin_b=origin_b,
+        cvd_type=cvd_type,
+        severity=severity,
+        target=target,
+        palette_lab=palette_lab,
+        pair_chunk_size=pair_chunk_size,
+    )
+
+    # 첫 cube의 경계에서 해가 나오면 한 번의 정밀화만으로는 같은 방향으로
+    # 더 이동할 수 없다. 새 해를 중심으로 다시 훑어 개선이 멈출 때 종료한다.
+    for _ in range(1, _PAIR_REFINEMENT_MAX_PASSES):
+        local_a = _rgb_cube(current["corrected_A"], _PAIR_RGB_REFINEMENT_RADIUS)
+        local_b = _rgb_cube(current["corrected_B"], _PAIR_RGB_REFINEMENT_RADIUS)
+        count_a += int(local_a.shape[0])
+        count_b += int(local_b.shape[0])
+        refined = _search_pair_pool(
+            local_a,
+            local_b,
+            current,
+            origin_a=origin_a,
+            origin_b=origin_b,
+            cvd_type=cvd_type,
+            severity=severity,
+            target=target,
+            palette_lab=palette_lab,
+            pair_chunk_size=pair_chunk_size,
+        )
+        passes += 1
+        if float(refined["total_color_change"]) >= float(
+            current["total_color_change"]
+        ) - _EPSILON:
+            break
+        current = refined
+    return current, count_a, count_b, passes
 
 
 def find_minimum_correction(
@@ -552,7 +607,9 @@ def find_minimum_correction(
                 "single_refinement_radius": _SINGLE_RGB_REFINEMENT_RADIUS,
                 "pair_refinement_radius": _PAIR_RGB_REFINEMENT_RADIUS,
                 "single_refinement_max_starts": _SINGLE_REFINEMENT_STARTS,
-                "pair_refinement_max_starts": _PAIR_REFINEMENT_STARTS,
+                "pair_refinement_max_starts": _PAIR_REFINEMENT_STARTS + 2,
+                "pair_refinement_max_passes": _PAIR_REFINEMENT_MAX_PASSES,
+                "pair_refinement_passes": 0,
                 "refinement_start_counts": {
                     "A_only": 0,
                     "B_only": 0,
@@ -707,6 +764,7 @@ def find_minimum_correction(
         "both_A": 0,
         "both_B": 0,
     }
+    pair_refinement_passes = 0
     # 정밀 탐색이 "실행됐는가"와 "결과를 실제로 줄였는가"는 다르다.
     # 후보 개수는 실행만 하면 항상 0보다 크므로, 개선 여부는 이동량을
     # 직접 비교해서 따로 기록한다.
@@ -747,14 +805,19 @@ def find_minimum_correction(
             )
         )
     if alternatives["both"] is not None:
+        # 양쪽 이동의 최적해가 단일 이동 해 바로 옆에 있는 경우가 많다.
+        # 정밀화된 A_only/B_only도 cube 중심으로 사용하되, 둘 다 실제로
+        # 움직인 후보만 both 결과로 채택한다.
+        for name in ("A_only", "B_only"):
+            if alternatives[name] is not None:
+                refinement_seeds["both"].append(alternatives[name])
         (
             alternatives["both"],
             refinement_counts["both_A"],
             refinement_counts["both_B"],
+            pair_refinement_passes,
         ) = _refine_pair_candidates(
             refinement_seeds["both"],
-            original_a=original_a,
-            original_b=original_b,
             origin_a=origin_a,
             origin_b=origin_b,
             cvd_type=cvd_type,
@@ -788,7 +851,9 @@ def find_minimum_correction(
         "single_refinement_radius": _SINGLE_RGB_REFINEMENT_RADIUS,
         "pair_refinement_radius": _PAIR_RGB_REFINEMENT_RADIUS,
         "single_refinement_max_starts": _SINGLE_REFINEMENT_STARTS,
-        "pair_refinement_max_starts": _PAIR_REFINEMENT_STARTS,
+        "pair_refinement_max_starts": _PAIR_REFINEMENT_STARTS + 2,
+        "pair_refinement_max_passes": _PAIR_REFINEMENT_MAX_PASSES,
+        "pair_refinement_passes": pair_refinement_passes,
         "refinement_start_counts": {
             name: len(seeds) for name, seeds in refinement_seeds.items()
         },

@@ -75,11 +75,11 @@ def generate_confusing_pairs(
     return pairs
 
 
-def _relative_spread_percent(values: list[float]) -> float:
+def _relative_spread_percent(values: list[float]) -> float | None:
     """최솟값 대비 step 결과 범위의 비율을 백분율로 계산한다."""
     best = min(values)
     if best <= 1e-15:
-        return 0.0 if max(values) <= 1e-15 else float("inf")
+        return 0.0 if max(values) <= 1e-15 else None
     return 100.0 * (max(values) - best) / best
 
 
@@ -92,6 +92,7 @@ def run_benchmark(
     pairs = generate_confusing_pairs(pair_count, seed)
     records: list[dict[str, object]] = []
     spreads: list[float] = []
+    undefined_spread_count = 0
     nonmonotonic_count = 0
 
     # 큰 step에서 작은 step 순으로 비교해야 "더 촘촘해졌는데 악화"를 찾을 수 있다.
@@ -129,7 +130,10 @@ def run_benchmark(
             totals[index + 1] > totals[index] + 1e-12
             for index in range(len(totals) - 1)
         )
-        spreads.append(spread)
+        if spread is None:
+            undefined_spread_count += 1
+        else:
+            spreads.append(spread)
         nonmonotonic_count += int(worsened_when_finer)
         records.append(
             {
@@ -141,6 +145,16 @@ def run_benchmark(
         )
 
     spread_array = np.asarray(spreads, dtype=float)
+    if spread_array.size:
+        median_spread: float | None = float(np.median(spread_array))
+        mean_spread: float | None = float(np.mean(spread_array))
+        max_spread: float | None = float(np.max(spread_array))
+        pairs_over_five = int(np.count_nonzero(spread_array > 5.0))
+    else:
+        median_spread = None
+        mean_spread = None
+        max_spread = None
+        pairs_over_five = 0
     return {
         "generated_at": datetime.now().astimezone().isoformat(),
         "environment": {
@@ -161,10 +175,11 @@ def run_benchmark(
             "spread_definition": "100 * (max(total)-min(total)) / min(total)",
         },
         "summary": {
-            "median_relative_spread_percent": float(np.median(spread_array)),
-            "mean_relative_spread_percent": float(np.mean(spread_array)),
-            "max_relative_spread_percent": float(np.max(spread_array)),
-            "pairs_over_5_percent": int(np.count_nonzero(spread_array > 5.0)),
+            "median_relative_spread_percent": median_spread,
+            "mean_relative_spread_percent": mean_spread,
+            "max_relative_spread_percent": max_spread,
+            "pairs_over_5_percent": pairs_over_five,
+            "undefined_spread_pairs": undefined_spread_count,
             "nonmonotonic_pairs": nonmonotonic_count,
         },
         "pairs": records,
@@ -190,7 +205,7 @@ def main() -> None:
         tuple(args.steps),
         args.max_shift,
     )
-    text = json.dumps(report, ensure_ascii=False, indent=2)
+    text = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False)
     if args.output is None:
         print(text)
         return

@@ -281,7 +281,8 @@ python -m unittest -v
   비슷한 색쌍이 "색각이상 때문에 혼동되는 쌍"으로 잘못 분류되기 때문이다.
 - 최소 색이동은 OKLab radial grid로 넓게 찾은 뒤, 각 전략에서 이동량이
   작은 여러 후보 주변의 8-bit RGB 정수색을 합쳐 다시 확인한 multi-start
-  근사 최적해이다. 대표 빨강-초록
+  탐색이며, 양쪽 이동은 개선이 멈출 때까지 반복 정밀화하는 근사 최적해이다.
+  대표 빨강-초록
   검증 색쌍((192,32,32)/(64,128,0), deutan, severity 1.0, target 10)의
   총 이동량은 step 0.04 -> 0.050330, 0.02 -> 0.049668,
   0.01 -> 0.049668, 0.005 -> 0.049668이었다.
@@ -298,9 +299,11 @@ python -m unittest -v
   더 넓은 표본의 step 편차는 다음 명령으로 측정한다. 결과 JSON에는
   random seed, 실제 색쌍, 실행 환경, 편차 계산식이 함께 저장된다.
 
-  python benchmark_search.py --pairs 30 --output search_benchmark.json
+  python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 
-  30개 색쌍을 세 step으로 반복 탐색하므로 실행에 수 분이 걸릴 수 있다.
+  현재 고정 30쌍 결과는 평균 편차 0.0176%, 최대 0.5267%, 5% 초과 0건,
+  비단조 0건이다. 30개 색쌍을 세 step으로 반복 탐색하므로 현재 환경에서
+  약 8분이 걸린다. 이 표본 결과를 전체 색공간의 보장으로 일반화하지 않는다.
   논문에 수치를 쓸 때는 생성된 JSON을 연구 자료와 함께 보관한다.
 - 탐색에 실패해도 max_shift를 키우는 것은 거의 효과가 없다. sRGB gamut이
   먼저 후보를 제한하기 때문이다 (max_shift 0.45 이상에서 후보 수 포화).

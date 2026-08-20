@@ -42,7 +42,7 @@ TODO 또는 실험 변수로 남긴다.
 
 ```bash
 cd src
-python -m unittest -q                 # 테스트 37개, 약 30초
+python -m unittest -q                 # 테스트 41개, 약 1분 30초
 python two_color_demo.py --help
 python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 ```
@@ -66,8 +66,9 @@ python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 
 ### 3. 탐색 결과는 전역 최적해가 아니다
 
-radial grid + 지역 RGB cube + multi-start 방식이다. 개선됐지만 seed 의존성이
-남아 있다. "최소 색이동"으로 보고할 때는 이 점을 밝힌다.
+radial grid + 지역 RGB cube + multi-start + 반복 정밀화 방식이다. 고정
+30쌍에서는 step 비단조가 관찰되지 않았지만 전역 최적해를 보장하지 않는다.
+"최소 색이동"으로 보고할 때는 이 점을 밝힌다.
 
 ### 4. 재혼동 제약의 의미를 좁혀서 이해한다
 

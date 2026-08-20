@@ -139,6 +139,61 @@ class SearchStepStabilityTests(unittest.TestCase):
         self.assertLess(max(totals) - min(totals), 1e-12)
 
 
+class PairRefinementConvergenceTests(unittest.TestCase):
+    """한 번의 pair cube로는 경계에서 멈췄던 benchmark 사례의 회귀 테스트."""
+
+    def test_repeated_pair_refinement_removes_remaining_nonmonotonic_case(self) -> None:
+        color_a = (81, 226, 75)
+        color_b = (226, 217, 80)
+        results = [
+            find_minimum_correction(
+                color_a,
+                color_b,
+                "deutan",
+                0.8,
+                15.0,
+                search_config=SearchConfig(step=step, max_shift=0.30),
+            )
+            for step in (0.02, 0.005)
+        ]
+        for result in results:
+            self.assertTrue(result["success"])
+            self.assertEqual(result["strategy"], "both")
+            self.assertEqual(result["corrected_A"], (17, 221, 135))
+            self.assertEqual(result["corrected_B"], (226, 217, 79))
+            self.assertGreaterEqual(result["simulated_distance"], 15.0)
+            self.assertGreater(result["search"]["pair_refinement_passes"], 1)
+        self.assertAlmostEqual(
+            results[0]["total_color_change"],
+            results[1]["total_color_change"],
+            places=12,
+        )
+
+    def test_pair_refinement_uses_single_solution_as_a_nearby_center(self) -> None:
+        color_a = (96, 214, 134)
+        color_b = (172, 196, 18)
+        results = [
+            find_minimum_correction(
+                color_a,
+                color_b,
+                "deutan",
+                0.8,
+                15.0,
+                search_config=SearchConfig(step=step, max_shift=0.30),
+            )
+            for step in (0.02, 0.005)
+        ]
+        for result in results:
+            self.assertEqual(result["strategy"], "both")
+            self.assertEqual(result["corrected_A"], (92, 214, 138))
+            self.assertEqual(result["corrected_B"], (172, 196, 17))
+        self.assertAlmostEqual(
+            results[0]["total_color_change"],
+            results[1]["total_color_change"],
+            places=12,
+        )
+
+
 class RefinementMetadataTests(unittest.TestCase):
     def test_running_refinement_is_reported_separately_from_improving_it(self) -> None:
         result = find_minimum_correction(
