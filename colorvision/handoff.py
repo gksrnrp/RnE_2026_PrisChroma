@@ -25,8 +25,28 @@ estimate.py 가 맞춘 심리측정 함수는
 
 이 값으로 임계값을 정한다. 손으로 고르지 않고 측정에서 끌어내는 것이다.
 
-    simulated_max = d(p_low)     기본 0.25  — 넷 중 하나꼴로만 가려지면 혼동으로 본다
+    simulated_max = d(p_low)     기본 0.50  — 반반도 못 가리면 혼동으로 본다
     target        = d(p_high)    기본 0.95  — 이만큼 벌리면 거의 항상 가려진다
+
+p_low 을 0.50 으로 두는 이유
+----------------------------
+처음에는 0.25 로 잡았다. "확실히 못 볼 때만 혼동으로 치자"는 생각이었는데,
+색보정에서는 그 방향이 틀렸다. 놓치면 사용자가 여전히 그림을 못 읽지만,
+조금 과하게 고치면 색이 약간 달라질 뿐이다. **놓치는 쪽이 더 나쁘다.**
+
+실제로 protan 혼동선 위 색쌍 1412개로 재보니 차이가 컸다.
+
+    기준 0.62 (25% 지점)  ->  37% 만 혼동으로 잡힘
+    기준 0.95 (50% 지점)  ->  70% 가 잡힘
+    기준 1.28 (75% 지점)  ->  86%
+    기준 3.00 (선행 논문)  ->  100%
+
+0.50 은 자의성도 덜하다. 그 지점이 곧 실험이 직접 추정한 역치 θ 이고,
+심리물리학에서 역치를 말할 때 관례적으로 쓰는 지점이다.
+
+⚠️ 이걸 바꿨다고 문제가 다 풀린 것은 아니다. 0.95 도 결국 **큰 패치를
+붙여놓고 잰 값**이라 얇은 선에는 여전히 작을 수 있다. 그건 기하 조건을
+바꿔 다시 재야 알 수 있다 (experiment_geometry.py).
 
 λ 를 빼고 계산하는 이유가 하나 더 있다. 실수율이 조금만 높아도 정답률
 천장이 0.93 같은 값이 되어 "정답률 95%" 라는 목표 자체가 도달 불가능해진다.
@@ -68,7 +88,7 @@ def accuracy_at(threshold, width, lapse, d):
     return GUESS_RATE + (1.0 - GUESS_RATE - lapse) / (1.0 + math.exp(-z))
 
 
-def baseline_thresholds(params, p_low=0.25, p_high=0.95, margin=1.0,
+def baseline_thresholds(params, p_low=0.50, p_high=0.95, margin=1.0,
                         original_min=DEFAULT_ORIGINAL_MIN):
     """추정 결과 dict -> 창민 파트의 ConfusionThresholds 세 값.
 
@@ -158,8 +178,8 @@ def render(out, params):
 def main(argv=None):
     p = argparse.ArgumentParser(description="개인 파라미터 -> 팀 baseline 임계값")
     p.add_argument("params", help="estimate.py 가 저장한 *_params.json")
-    p.add_argument("--p-low", type=float, default=0.25,
-                   help="이 구별 확률 아래는 '혼동'으로 본다")
+    p.add_argument("--p-low", type=float, default=0.50,
+                   help="이 구별 확률 아래는 '혼동'으로 본다 (0.50 = 측정된 역치 자체)")
     p.add_argument("--p-high", type=float, default=0.95,
                    help="보정 목표로 삼을 구별 확률")
     p.add_argument("--margin", type=float, default=1.0,
