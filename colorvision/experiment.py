@@ -26,6 +26,7 @@ import pygame
 
 from . import machado as mc
 from .colorspace import hex_of, to_bytes
+from .geometry import screen_width_cm_from_diagonal, visual_angle_deg
 from .stimuli import (BACKGROUND, JITTER_MAX, build_conditions, make_staircases,
                       probe_directions, run_session)
 
@@ -131,6 +132,10 @@ class Experiment:
         self.screen = pygame.display.set_mode(
             (0, 0) if args.fullscreen else (args.width, args.height), flags)
         self.W, self.H = self.screen.get_size()
+        # 전체화면은 물리 패널에 맞춰 늘어나므로, 프레임버퍼 크기가 패널
+        # 해상도와 달라도 '화면 대비 비율'로 계산하면 물리 크기가 맞는다.
+        self.screen_width_cm = screen_width_cm_from_diagonal(
+            args.screen_diagonal, 16, 9)
         self.bg = tuple(int(v) for v in to_bytes(np.array(BACKGROUND)))
         self.f_big = load_font(38, bold=True)
         self.f_mid = load_font(24)
@@ -381,6 +386,30 @@ class Experiment:
         finally:
             pygame.quit()
 
+    def viewing_info(self):
+        """자극이 눈에 얼마나 크게 보였는지. px 는 그 자체로 의미가 없다.
+
+        같은 232 px 도 화면 크기와 보는 거리에 따라 망막에 맺히는 크기가
+        달라진다. 다른 화면이나 다른 연구의 수치와 비교하려면 시야각이 있어야
+        한다. 1차 실험 초기 세션에는 이 값이 없어서 소급 계산해야 했다.
+        """
+        side = int(min(self.W, self.H) * 0.26)
+        gap = int(side * 0.30)
+        info = {
+            "screen_diagonal_inch": self.args.screen_diagonal,
+            "screen_width_cm": self.screen_width_cm,
+            "viewing_distance_cm": self.args.viewing_distance,
+            "patch_side_px": side,
+            "patch_gap_px": gap,
+            "patch_center_distance_px": side + gap,
+        }
+        d = self.args.viewing_distance
+        info["patch_side_deg"] = visual_angle_deg(side, self.W,
+                                                  self.screen_width_cm, d)
+        info["patch_center_distance_deg"] = visual_angle_deg(
+            side + gap, self.W, self.screen_width_cm, d)
+        return info
+
     # ------------------------------------------------------------ 저장
 
     def save(self):
@@ -403,6 +432,7 @@ class Experiment:
             "aborted": self.aborted,
             "n_trials": len(self.rows),
             "screen": [self.W, self.H],
+            "viewing": self.viewing_info(),
             "config": vars(self.args),
             "simulator": {
                 "model": "Machado et al. 2009",
@@ -442,6 +472,10 @@ def build_parser():
                    help="정오 표시를 끈다")
     p.add_argument("--varied-layout", dest="varied_layout", action="store_true",
                    help="패치의 위치/크기/모양도 매 시행 바꾼다 (기본은 고정 2x2)")
+    p.add_argument("--viewing-distance", type=float, default=None,
+                   help="화면까지의 거리 (cm). 없으면 시야각을 남길 수 없다")
+    p.add_argument("--screen-diagonal", type=float, default=None,
+                   help="모니터 대각선 (인치). 없으면 시야각을 남길 수 없다")
     p.add_argument("--jitter", type=float, default=JITTER_MAX,
                    help="매 시행 기준색을 흔드는 폭 (0 이면 끔). 같은 색 반복을 줄인다")
     p.add_argument("--no-dither", dest="dither", action="store_false",
@@ -457,6 +491,11 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    if args.viewing_distance is None or args.screen_diagonal is None:
+        print("경고: --viewing-distance 와 --screen-diagonal 이 없으면")
+        print("      자극 크기를 시야각으로 남길 수 없어 다른 화면·다른 연구의")
+        print("      수치와 비교하지 못한다. 대략이라도 넣는 것을 권한다.")
+        print("")
     exp = Experiment(args)
     exp.run()
     if not exp.rows:
