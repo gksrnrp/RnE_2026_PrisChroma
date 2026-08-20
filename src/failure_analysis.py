@@ -26,6 +26,9 @@ from distance import color_distance
 from slic_extract import extract_regions, load_image
 
 
+# 저장소 규칙이 LF다. 윈도우에서 돌려도 CRLF가 섞이지 않게 명시한다.
+LF = "\n"
+
 SWALLOW_FACTOR = 4.0
 FRAGMENT_LIMIT = 8
 COLOR_TOLERANCE = 10.0
@@ -42,6 +45,18 @@ FRAGMENT_COVERAGE = 0.90
 
 # 색 어긋남을 잴 때 무시할 만큼 작은 조각의 기준.
 COLOR_MIN_SHARE = 0.01
+
+# 굵기별 검출률 표를 묶을 구간. 얇은 쪽은 1 px 단위로 잘게 나눈다.
+# 검출 여부가 갈리는 곳이 4~8 px 사이라서다.
+WIDTH_BINS = (
+    (0.0, 2.0, "1~2 미만"),
+    (2.0, 4.0, "2~4 미만"),
+    (4.0, 6.0, "4~6 미만"),
+    (6.0, 8.0, "6~8 미만"),
+    (8.0, 12.0, "8~12 미만"),
+    (12.0, 16.0, "12~16 미만"),
+    (16.0, float("inf"), "16 이상"),
+)
 
 VERDICTS = (
     "detected",
@@ -203,7 +218,11 @@ def evaluate_image(
     return labels, regions, verdicts
 
 
-def region_color_map(image: np.ndarray, labels: np.ndarray, regions) -> np.ndarray:
+def region_color_map(
+    image: np.ndarray,
+    labels: np.ndarray,
+    regions,
+) -> np.ndarray:
     """영역을 대표색으로 칠한 그림. 파이프라인이 무엇을 봤는지 보여준다."""
     painted = np.zeros_like(image)
     for region in regions:
@@ -295,13 +314,19 @@ def analyze_dataset(
     ]
     csv_path = output / "failure_cases.csv"
     with open(csv_path, "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(
+            handle, fieldnames=fieldnames, lineterminator=LF
+        )
         writer.writeheader()
         for record in all_records:
             writer.writerow({key: record[key] for key in fieldnames})
 
-    summary = _summary_markdown(all_records, n_segments, compactness, merge_thresh)
-    (output / "failure_summary.md").write_text(summary, encoding="utf-8")
+    summary = _summary_markdown(
+        all_records, n_segments, compactness, merge_thresh
+    )
+    (output / "failure_summary.md").write_text(
+        summary, encoding="utf-8", newline=LF
+    )
     if verbose:
         print(f"저장: {csv_path}")
         print(f"저장: {output / 'failure_summary.md'}")
@@ -336,23 +361,34 @@ def _summary_markdown(
         lines.append(f"| `{verdict}` | {counts[verdict]} | {ratio:.1%} |")
     lines.append(f"| 합계 | {total} | |")
     lines.append("")
+    lines.append(
+        "요소 수를 그대로 합친 값이라 점이 320개인 `dot_plate` 한 장이 "
+        "전체 비율을 좌우한다. 장면별 표를 함께 본다."
+    )
+    lines.append("")
 
     lines.append("## 요소 굵기별 검출률")
     lines.append("")
-    lines.append("| 공칭 굵기 (px) | 요소 수 | detected | 검출률 |")
+    lines.append(
+        "굵기를 구간으로 묶었다. `dot_plate`의 점은 지름이 무작위라 "
+        "값 하나하나로 세면 표가 요소 수만큼 길어진다."
+    )
+    lines.append("")
+    lines.append("| 굵기 구간 (px) | 요소 수 | detected | 검출률 |")
     lines.append("|---|---|---|---|")
-    widths = sorted({record["nominal_stroke_width_px"] for record in records})
-    for width in widths:
+    for low, high, label in WIDTH_BINS:
         subset = [
             record
             for record in records
-            if record["nominal_stroke_width_px"] == width
+            if low <= record["nominal_stroke_width_px"] < high
         ]
+        if not subset:
+            continue
         detected = sum(
             1 for record in subset if record["verdict"] == "detected"
         )
         lines.append(
-            f"| {width:g} | {len(subset)} | {detected} | "
+            f"| {label} | {len(subset)} | {detected} | "
             f"{detected / len(subset):.1%} |"
         )
     lines.append("")

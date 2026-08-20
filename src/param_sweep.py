@@ -31,15 +31,23 @@ MERGE_THRESH_GRID = (0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0)
 D_MAX_GRID: tuple[float | None, ...] = (50.0, 100.0, 200.0, 400.0, None)
 
 # 굵기별 검출률을 보려면 굵기만 다른 장면이 필요하다.
-LINE_SCENES = tuple(f"lines_w{width:02d}" for width in (1, 2, 3, 4, 6, 8, 12, 16))
+LINE_SCENES = tuple(
+    f"lines_w{width:02d}" for width in (1, 2, 3, 4, 6, 8, 12, 16)
+)
+
+
+# 저장소 규칙이 LF다. csv 모듈의 기본 줄바꿈은 CRLF라 명시해야 한다.
+LF = "\n"
 
 
 def _write_csv(rows: list[dict], path: Path) -> None:
     if not rows:
-        path.write_text("", encoding="utf-8")
+        path.write_text("", encoding="utf-8", newline=LF)
         return
     with open(path, "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(
+            handle, fieldnames=list(rows[0]), lineterminator=LF
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -86,7 +94,9 @@ def _run_case(
         "adjacent_edge_count": len(adjacency),
         "element_count": total,
         **counts,
-        "detection_rate": round(counts["detected"] / total, 4) if total else 0.0,
+        "detection_rate": (
+            round(counts["detected"] / total, 4) if total else 0.0
+        ),
         "mean_regions_per_element": round(float(np.mean(fragments)), 3),
         "seconds": round(elapsed, 3),
     }
@@ -390,7 +400,9 @@ def write_summary(
         "320개인 `dot_plate` 한 장이 전체를 결정해 버린다."
     )
     lines.append("")
-    line_scenes = {row["image"] for row in merge_rows if "lines_w" in row["image"]}
+    line_scenes = {
+        row["image"] for row in merge_rows if "lines_w" in row["image"]
+    }
     lines.append(
         "| merge_thresh | 평균 영역 수 | 요소당 평균 영역 수 | "
         "장면 평균 검출률 | 선 장면 검출률 |"
@@ -403,12 +415,14 @@ def write_summary(
         ]
         line_detected = sum(row["detected"] for row in line_subset)
         line_total = sum(row["element_count"] for row in line_subset)
+        mean_regions = np.mean([row["region_count"] for row in subset])
+        mean_fragments = np.mean(
+            [row["mean_regions_per_element"] for row in subset]
+        )
+        mean_detection = np.mean([row["detection_rate"] for row in subset])
         lines.append(
-            f"| {value:g} | "
-            f"{np.mean([row['region_count'] for row in subset]):.1f} | "
-            f"{np.mean([row['mean_regions_per_element'] for row in subset]):.2f} | "
-            f"{np.mean([row['detection_rate'] for row in subset]):.1%} | "
-            f"{line_detected / line_total:.1%} |"
+            f"| {value:g} | {mean_regions:.1f} | {mean_fragments:.2f} | "
+            f"{mean_detection:.1%} | {line_detected / line_total:.1%} |"
         )
     lines.append("")
     lines.append("장면별 검출률:")
@@ -457,7 +471,7 @@ def write_summary(
     lines.append("")
 
     path = Path(out_dir) / "sweep_summary.md"
-    path.write_text("\n".join(lines), encoding="utf-8")
+    path.write_text("\n".join(lines), encoding="utf-8", newline=LF)
     return str(path)
 
 

@@ -43,7 +43,10 @@ class ClassifyElementsTests(unittest.TestCase):
     def test_detected(self):
         labels = np.zeros((10, 10), dtype=np.int64)
         labels[4:6, :] = 1
-        regions = [_region(0, (255, 255, 255), 80), _region(1, (200, 30, 30), 20)]
+        regions = [
+            _region(0, (255, 255, 255), 80),
+            _region(1, (200, 30, 30), 20),
+        ]
         [record] = classify_elements(
             labels, regions, [_element()], self.id_map
         )
@@ -67,7 +70,9 @@ class ClassifyElementsTests(unittest.TestCase):
         for column in range(10):
             labels[4:6, column] = column + 1
         regions = [_region(0, (255, 255, 255), 80)]
-        regions += [_region(index + 1, (200, 30, 30), 2) for index in range(10)]
+        regions += [
+            _region(index + 1, (200, 30, 30), 2) for index in range(10)
+        ]
         [record] = classify_elements(
             labels, regions, [_element()], self.id_map
         )
@@ -78,7 +83,10 @@ class ClassifyElementsTests(unittest.TestCase):
         labels = np.zeros((10, 10), dtype=np.int64)
         labels[4:6, :] = 1
         # 안티앨리어싱으로 배경과 섞인 색을 흉내낸다.
-        regions = [_region(0, (255, 255, 255), 80), _region(1, (240, 190, 190), 20)]
+        regions = [
+            _region(0, (255, 255, 255), 80),
+            _region(1, (240, 190, 190), 20),
+        ]
         [record] = classify_elements(
             labels, regions, [_element()], self.id_map
         )
@@ -90,7 +98,10 @@ class ClassifyElementsTests(unittest.TestCase):
         labels = np.zeros((10, 10), dtype=np.int64)
         labels[4:6, :] = 7
         [record] = classify_elements(
-            labels, [_region(0, (255, 255, 255), 80)], [_element()], self.id_map
+            labels,
+            [_region(0, (255, 255, 255), 80)],
+            [_element()],
+            self.id_map,
         )
         self.assertEqual(record["verdict"], "not_covered")
         self.assertEqual(record["dominant_region_id"], -1)

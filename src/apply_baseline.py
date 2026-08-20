@@ -89,7 +89,10 @@ def correct_measurement(
         어떻게 낼지는 아직 정해진 문제가 아니기 때문이다.
     """
     condition_key = f"{cvd_type}_{int(round(float(severity) * 100)):03d}"
-    regions = {record["region_id"]: record for record in measurement["regions"]}
+    regions = {
+        record["region_id"]: record
+        for record in measurement["regions"]
+    }
     candidates = select_candidate_pairs(
         measurement["pairs"],
         thresholds,

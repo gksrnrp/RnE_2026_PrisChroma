@@ -33,10 +33,18 @@ python two_color_demo.py --color-a 220 50 50 --color-b 60 160 60     --type deut
 
 주변 색과의 재혼동까지 막으려면 `--palette` 에 R G B 를 3개씩 이어서 넣습니다.
 
-자동 테스트 (41개, 현재 환경에서 약 1분 30초):
+자동 테스트 (89개, 현재 환경에서 약 2분 40초):
 
 ```bash
 python -m unittest -q
+```
+
+②단계 탐지·측정 (이미지에서 혼동 후보 영역 쌍 찾기):
+
+```bash
+python -c "from generate_synthetic import generate_dataset; generate_dataset('../data/synthetic')"
+python -c "from measure_pairs import measure_directory; measure_directory('../data/real/images', '../results/measurements_real.json', n_segments=800, merge_thresh=1.0, sources_csv='../data/real/sources.csv')"
+python -c "from export_tables import export_all; export_all('../results/measurements_real.json', '../results')"
 ```
 
 탐색 안정성 벤치마크 (현재 환경에서 약 8분, 결과는 `results/`에 보관):
@@ -53,6 +61,8 @@ python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 | [docs/research-plan.txt](docs/research-plan.txt) | 담당 파트 계획과 알고리즘 설명 |
 | [docs/code-review.md](docs/code-review.md) | 무엇을 왜 고쳤는지, 남은 한계 |
 | [AGENTS.md](AGENTS.md) | Codex·Claude Code 공용 작업 지침 |
+| [docs/handoff-jeongingyo.md](docs/handoff-jeongingyo.md) | ②단계 탐지·측정 인수인계 |
+| [data/real/README.md](data/real/README.md) | 실제 이미지 수집 규칙 |
 
 ---
 

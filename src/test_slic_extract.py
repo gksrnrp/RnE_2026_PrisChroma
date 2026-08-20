@@ -123,7 +123,9 @@ class ArcminTests(unittest.TestCase):
     def test_known_value(self):
         # 15.6인치 1920x1080에서 1 px은 약 0.018 cm, 50 cm 거리에서
         # 약 1.24 arcmin이다.
-        self.assertAlmostEqual(px_to_arcmin(1.0, **self.scale), 1.236, places=2)
+        self.assertAlmostEqual(
+            px_to_arcmin(1.0, **self.scale), 1.236, places=2
+        )
 
     def test_proportional_for_small_angles(self):
         single = px_to_arcmin(1.0, **self.scale)

@@ -307,7 +307,9 @@ def generate_dataset(
             "elements": elements,
         }
 
-    with open(root / "ground_truth.json", "w", encoding="utf-8") as handle:
+    with open(
+        root / "ground_truth.json", "w", encoding="utf-8", newline="\n"
+    ) as handle:
         json.dump(manifest, handle, ensure_ascii=False, indent=2)
     return manifest
 

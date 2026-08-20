@@ -20,6 +20,9 @@ import numpy as np
 
 PERCENTILES = (5, 25, 50, 75, 95)
 
+# 저장소 규칙이 LF다. 윈도우에서 돌려도 CRLF가 섞이지 않게 명시한다.
+LF = "\n"
+
 # 1차 실험에서 측정된 개인 역치. 큰 색면을 맞붙여 잰 최적 조건 값이므로
 # 실제 이미지에 그대로 쓰지 않는다. 여기서는 상대 비교의 기준으로만 쓴다.
 MEASURED_OPTIMAL_THRESHOLD = 0.62
@@ -31,8 +34,9 @@ def _load(json_path: str | Path) -> dict:
 
 
 def _write_csv(rows: list[dict], out_path: Path) -> int:
+    # 줄바꿈은 저장소 규칙에 맞춰 LF로 쓴다. csv 모듈의 기본값은 CRLF다.
     if not rows:
-        out_path.write_text("", encoding="utf-8")
+        out_path.write_text("", encoding="utf-8", newline=LF)
         return 0
     fieldnames: list[str] = []
     for row in rows:
@@ -40,7 +44,9 @@ def _write_csv(rows: list[dict], out_path: Path) -> int:
             if key not in fieldnames:
                 fieldnames.append(key)
     with open(out_path, "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(
+            handle, fieldnames=fieldnames, lineterminator=LF
+        )
         writer.writeheader()
         writer.writerows(rows)
     return len(rows)
@@ -141,11 +147,21 @@ def build_conditions(
     lines.append("")
     lines.append("받는 사람: 한정훈 · 만든 사람: 정인교 (②단계 탐지·측정)")
     lines.append("")
+    source_dir = str(payload.get("image_dir", ""))
     lines.append(
-        "이 문서는 실제 이미지에서 잰 굵기와 거리의 분포다. "
+        f"측정 대상: `{source_dir}` · 이 문서는 굵기와 거리의 분포이고 "
         "혼동 여부 판정은 들어 있지 않다."
     )
     lines.append("")
+    if "synthetic" in source_dir.replace("\\", "/").lower():
+        # 합성 이미지로 돌린 결과를 실제 측정값으로 오해하면 실험 조건이
+        # 통째로 틀어진다. 문서 첫머리에서 못 박아 둔다.
+        lines.append(
+            "> **이 수치는 합성 이미지에서 나온 값이다.** 실험 조건을 이대로 "
+            "쓰면 안 된다. `data/real/images`를 채우고 다시 돌린 뒤의 값을 "
+            "써야 한다."
+        )
+        lines.append("")
 
     lines.append("## 데이터셋")
     lines.append("")
@@ -291,7 +307,9 @@ def export_all(
 
     conditions_path = output / "conditions.md"
     conditions_path.write_text(
-        build_conditions(payload, region_rows, pair_rows), encoding="utf-8"
+        build_conditions(payload, region_rows, pair_rows),
+        encoding="utf-8",
+        newline=LF,
     )
 
     if verbose:

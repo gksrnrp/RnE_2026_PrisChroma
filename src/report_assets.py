@@ -15,6 +15,9 @@ import numpy as np
 # 한글이 깨지지 않게 윈도우 기본 한글 글꼴을 먼저 찾는다.
 KOREAN_FONTS = ("Malgun Gothic", "NanumGothic", "AppleGothic", "Gulim")
 
+# 저장소 규칙이 LF다. 윈도우에서 돌려도 CRLF가 섞이지 않게 명시한다.
+LF = "\n"
+
 
 def _setup_matplotlib():
     import matplotlib
@@ -346,7 +349,7 @@ def build_all(
     lines.append("")
 
     path = results_dir / "report_tables.md"
-    path.write_text("\n".join(lines), encoding="utf-8")
+    path.write_text("\n".join(lines), encoding="utf-8", newline=LF)
     if verbose:
         print(f"표 저장: {path}")
     return str(path)

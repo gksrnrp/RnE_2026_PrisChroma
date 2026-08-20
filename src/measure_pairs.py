@@ -160,7 +160,10 @@ def measure_image(
     if len(regions) < 2:
         return result
 
-    index_of = {region.region_id: index for index, region in enumerate(regions)}
+    index_of = {
+        region.region_id: index
+        for index, region in enumerate(regions)
+    }
     centroids = np.asarray([region.centroid_xy for region in regions])
     boxes = np.asarray([region.bbox for region in regions], dtype=float)
     areas = np.asarray([region.area_px for region in regions], dtype=float)
@@ -180,20 +183,23 @@ def measure_image(
 
     # 맞닿은 쌍은 거리 제한과 무관하게 남긴다. 인접한데도 멀다고 빠지는
     # 일(길게 뻗은 영역)을 막기 위해서다.
+    #
+    # 쌍 위치는 triu 순서에서 계산으로 구한다. 모든 쌍을 사전에 넣으면
+    # 영역이 수천 개일 때 항목이 수백만 개가 되어 메모리를 크게 쓴다.
     shared_border = np.zeros(index_a.shape, dtype=float)
-    if adjacency:
-        pair_position = {}
-        for position, (left, right) in enumerate(zip(index_a, index_b)):
-            pair_position[(int(left), int(right))] = position
-        for (left_label, right_label), border in adjacency.items():
-            left = index_of.get(left_label)
-            right = index_of.get(right_label)
-            if left is None or right is None:
-                continue
-            key = (min(left, right), max(left, right))
-            position = pair_position.get(key)
-            if position is not None:
-                shared_border[position] = float(border)
+    edges = [
+        (index_of[left], index_of[right], border)
+        for (left, right), border in adjacency.items()
+        if left in index_of and right in index_of
+    ]
+    if edges:
+        edge_array = np.asarray(edges, dtype=float)
+        low = np.minimum(edge_array[:, 0], edge_array[:, 1]).astype(np.int64)
+        high = np.maximum(edge_array[:, 0], edge_array[:, 1]).astype(np.int64)
+        positions = (
+            low * (2 * count - low - 1) // 2 + (high - low - 1)
+        )
+        shared_border[positions] = edge_array[:, 2]
     adjacent = shared_border > 0.0
 
     if d_max is not None:
@@ -395,7 +401,7 @@ def measure_directory(
     }
     output = Path(out_json)
     output.parent.mkdir(parents=True, exist_ok=True)
-    with open(output, "w", encoding="utf-8") as handle:
+    with open(output, "w", encoding="utf-8", newline="\n") as handle:
         json.dump(payload, handle, ensure_ascii=False)
     if verbose:
         size_mb = output.stat().st_size / (1024 * 1024)
