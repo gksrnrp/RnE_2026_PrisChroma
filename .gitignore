@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# 대용량 데이터 (100MB 넘는 파일은 GitHub에 못 올림)
+data/raw/
+*.csv.gz
+*.zip
+*.h5
+*.sqlite
+
+# OS / 편집기
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 임시 결과물
+results/tmp/
+*.log
