@@ -29,7 +29,8 @@ TODO 또는 실험 변수로 남긴다.
 | `docs/project-context.txt` | 연구 합의사항 (최상위 기준) |
 | `docs/research-plan.txt` | 담당 파트 계획과 알고리즘 설명 |
 | `docs/code-review.md` | **무엇을 왜 고쳤는지, 남은 한계** |
-| `results/` | 실험 결과 JSON |
+| `results/` | 실험 결과 JSON, 측정 산출물 |
+| `docs/handoff-jeongingyo.md` | ②단계 인수인계와 팀원 요청 사항 |
 
 **작업을 이어받으면 `docs/code-review.md`를 먼저 읽는다.** 이미 검토·수정된
 내용을 다시 논의하지 않기 위해서다.
@@ -42,7 +43,7 @@ TODO 또는 실험 변수로 남긴다.
 
 ```bash
 cd src
-python -m unittest -q                 # 테스트 41개, 약 1분 30초
+python -m unittest -q                 # baseline 41개 + ②단계 48개, 약 2분
 python two_color_demo.py --help
 python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 ```
@@ -97,3 +98,57 @@ Codex와 Claude Code를 번갈아 쓰는 경우, **세션 자체는 연결되지
 
 커밋 메시지는 한 줄 요약 + 필요하면 이유를 적는다. `수정`, `ㅇㅇ` 같은
 메시지는 인수인계가 안 된다.
+
+---
+
+## ②단계(탐지·측정) 규칙 — 정인교
+
+파이프라인은 ① 개인화(한정훈) → ② 탐지·측정(정인교) → ③ 보정(이창민)
+→ ④ 평가(공동) 순이다. ②단계 코드는 아래 파일들이고, 이창민 소유
+파일(`machado.py`, `baseline.py`, `two_color_demo.py`)은 읽거나 호출만
+한다.
+
+`slic_extract.py` `measure_pairs.py` `export_tables.py`
+`generate_synthetic.py` `apply_baseline.py` `failure_analysis.py`
+`param_sweep.py` `report_assets.py`
+
+### 혼동 여부를 판정하지 않는다
+
+②단계 출력에 `is_confused` 같은 0/1 열을 넣지 않는다. 색차·거리·크기
+원본 수치만 기록하고 임계값 결정은 ①단계 실험 결과에 맡긴다.
+`test_measure_pairs.py`가 이 규칙을 테스트로 고정하고 있다.
+
+측정된 개인 역치 **0.62**는 큰 색면 두 개를 맞붙여 본 최적 조건의
+값이다. 노선도의 얇은 선이나 떨어진 영역에 그대로 쓸 수 없다. 지금은
+개인의 상대적 민감도로만 쓰고, 실제 이미지용 기준은 2차 실험으로 정한다.
+
+`apply_baseline.DEVELOPMENT_THRESHOLDS`는 파이프라인 연결 확인용
+설정값이지 연구 결과가 아니다.
+
+### 파라미터 기본값과 근거
+
+`n_segments=800`, `compactness=3`, `merge_thresh=1.0`, `d_max=200`.
+근거는 `results/sweep_summary.md`에 있다. 요약하면,
+
+- 8 px 선은 n_segments 300부터, 6 px은 500~800부터 잡힌다.
+  **3 px 이하는 3000까지 올려도 검출률 0%다.** 안티앨리어싱으로 대표색이
+  배경과 섞이는 것이 원인이라 superpixel을 더 잘게 쪼개도 풀리지 않는다.
+- `merge_thresh=0`은 쓰지 않는다. 두꺼운 요소가 수십 조각으로 나뉘어
+  장면 평균 검출률이 8%까지 떨어진다. 0.5 이상이면 값에 거의 무관하다.
+- `d_max=200`에서는 범례와 같은 색 선의 쌍을 하나도 잡지 못했고
+  400에서 5쌍을 모두 잡았다. 대신 쌍 수가 30개에서 55개로 늘었다.
+
+### 산출물 위치
+
+| 파일 | 커밋 | 내용 |
+|---|---|---|
+| `results/conditions.md` | O | 한정훈용 2차 실험 자극 조건 |
+| `results/sweep_summary.md` | O | 파라미터 민감도 요약 |
+| `results/failure_summary.md` | O | 분할 실패 유형별 건수 |
+| `results/report_tables.md` | O | 보고서용 표 모음 |
+| `results/*_sweep.csv` | O | 민감도 원본 수치 |
+| `results/figures/` | O | 보고서 그림 |
+| `results/pairs.csv`, `regions.csv` | X | 용량 |
+| `results/measurements_*.json` | X | 재생성 가능 |
+| `data/synthetic/` | X | `generate_synthetic.py`로 재생성 |
+| `data/real/` | O | 재생성 불가. 출처는 `sources.csv` |
