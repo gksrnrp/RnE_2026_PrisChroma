@@ -1,0 +1,15 @@
+# 파이썬 부산물
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# 편집기
+.vscode/
+.idea/
+
+# conditions.json 은 **커밋해야 한다**.
+# 자극 설계가 바뀌면 세션끼리 비교할 수 없으므로, 어떤 설계로 받은
+# 자료인지 저장소에 남아 있어야 한다. 무시 목록에 넣지 말 것.
