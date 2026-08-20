@@ -43,8 +43,14 @@ python -m unittest -q
 python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 ```
 
-연구 계획과 알고리즘 설명은 [docs/research-plan.txt](docs/research-plan.txt),
-코드 리뷰·검증 기록은 [docs/code-review.md](docs/code-review.md)에 있습니다.
+### 문서
+
+| 파일 | 내용 |
+|---|---|
+| [docs/project-context.txt](docs/project-context.txt) | 연구 합의사항 (최상위 기준) |
+| [docs/research-plan.txt](docs/research-plan.txt) | 담당 파트 계획과 알고리즘 설명 |
+| [docs/code-review.md](docs/code-review.md) | 무엇을 왜 고쳤는지, 남은 한계 |
+| [AGENTS.md](AGENTS.md) | Codex·Claude Code 공용 작업 지침 |
 
 ---
 
