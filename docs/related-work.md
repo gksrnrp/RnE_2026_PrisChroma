@@ -110,7 +110,45 @@ Machado severity + 신경망 + 개인화를 Meta Quest 에서 실시간으로 �
 
 동료평가 논문은 없고 Machado 파라미터로 내는지도 명시되어 있지 않다.
 
-### 1-6. 참고: 분야 개관
+### 1-6. 조경선·고성제 (2015) — 국내 연구. severity 를 임상 검사로 측정
+
+> 조경선, 고성제. **"적록 색각이상자를 위한 모니터 색 보정 시스템 구현"**
+> *전자공학회 논문지*, 52(5), 165–173, 2015. doi:10.5573/ieie.2015.52.5.165
+
+실행계획 §9-3 이 비교 대상으로 든 **Yang [4] / Kim [5] 계열의 직계 후속**이다
+(Kim 2013 이 이 논문의 참고문헌이며 같은 연구실).
+
+무엇을 했나
+
+- 모니터 하드웨어의 색조·채도 조절 기능(OSD)으로 보정. **별도 프로그램 불필요**
+- 규칙 기반 HSV 변환, Brettel 시뮬레이션
+- 색각이상자 5명 평가
+
+**severity 를 사용자에게 고르게 하지 않고 임상 검사로 측정했다.**
+
+| ID | FM-100 TES | 유형 | CVD strength |
+|---|---|---|---|
+| A | 660 | P | 10 (Severe) |
+| B | 308 | D | 10 |
+| C | 220 | D | 8 |
+| D | 264 | D | 10 |
+| E | 112 | D | 5 |
+
+이 점에서 Zhu 2022 · Hue4U 와 다르고 본 연구와 같다. **따라서 "선행연구는
+모두 사용자가 고르게 한다" 는 서술은 부정확하다.**
+
+다만 다리는 여전히 없다.
+
+```
+FM-100 TES 660  ->  자체 1~10 스케일의 "10"  ->  자체 HSV 규칙
+                     변환 근거 미제시              Machado 아님
+```
+
+TES 를 1~10 으로 옮기는 식이 논문에 없고, 그 값은 자기네 규칙 기반 보정에만
+쓰인다. 즉 **「측정 -> 자체 척도 -> 자체 방법」** 이며, 물리 기반 시뮬레이션
+파라미터로 오지 않는다.
+
+### 1-7. 참고: 분야 개관
 
 > Zhu et al. **"Image recoloring for color vision deficiency compensation:
 > a survey"** *The Visual Computer*, 2021. doi:10.1007/s00371-021-02240-0
@@ -147,6 +185,20 @@ Machado 모델     severity 를 입력으로 받는다.  단, 재는 방법이 �
 
 **임상 측정과 보정 모델 사이에 변환이 없다.** Zhu 2022 가 스크롤바를 붙인 것도,
 Hue4U 가 수동 조절을 택한 것도 이 다리가 없기 때문이다.
+
+정확히 말하면 문제는 **"아무도 측정하지 않는다"** 가 아니다. 조경선 2015 는
+FM-100 으로 측정했다. 문제는 **각자 다른 척도를 쓰고, 그 척도들이 물리 기반
+시뮬레이션 파라미터로 연결되지 않는다**는 것이다.
+
+```
+Zhu 2022        사용자 선택           -> Machado severity (측정 아님)
+Hue4U 2025      사용자 조절           -> Machado severity (측정 아님)
+조경선 2015     FM-100 TES 측정       -> 자체 1~10 스케일 (Machado 아님)
+CAD / CCT       역치 측정             -> u'v' vector length (Machado 아님)
+본 연구         색쌍 구별 실험         -> Machado severity 직접 산출
+```
+
+서로 비교할 수 없는 척도들이 병립한다. 이것이 이 분야의 실제 상태다.
 
 찾지 못한 것: **측정한 Machado 파라미터를 보정에 넣고, 그 측정이 타당한지
 검증한 연구.**
@@ -343,6 +395,34 @@ Confusion 16%` 로 정확히 같은데 결론은 protan 이다. protan 이라면
 이는 본 연구의 측정 조건을 옹호하는 근거이지만, 동시에 **본 연구의 정지 큰
 패치 조건도 얇은 선을 대표하지 못한다**는 §2 의 지적에 그대로 걸린다.
 
+### 보정 효과 평가 — 설계는 이미 있다
+
+한정훈 역할 목록의 마지막 두 항목(보정 결과의 구별성·자연스러움 평가, 개인화
+효과 검증)이 비어 있는데, **선행연구의 평가 설계를 그대로 쓰면 된다.**
+
+조경선 2015 의 방식:
+
+```
+1. 이시하라 38판을 보정 전/후로 읽게 함
+   결과: 평균 8.6판 더 맞힘
+
+2. 혼동 색이 섞인 이미지 4장, 5점 척도로 색 구분 정도 평가
+   결과: 3~4점 -> 4~5점
+
+3. 원본 vs 보정본 선호도 + 이유 서술
+   결과: 보정본 선호 65%
+```
+
+Zhu 2022 도 같은 구조(이시하라 판 읽기 + 선호도)를 쓴다.
+
+**1번이 특히 좋다.** 주관적 선호가 아니라 **정답이 있는 객관적 측정**이기
+때문이다. 그리고 본 피험자는 이미 원본 이시하라에서 2/18 을 기록했으므로,
+보정 후 몇 판이 더 읽히는지가 곧 결과가 된다.
+
+창민 파트의 `run_baseline` 으로 이시하라 판을 보정할 수 있으므로 구현 가능하다.
+severity 를 0.2 / 0.4 / 0.6 / 0.8 / 1.0 으로 바꿔가며 보정하면, 같은 실험에서
+아래의 singular degree 도 함께 얻을 수 있다.
+
 ### 남은 한 칸
 
 Zhu 2022 의 **singular degree** 방식이 아직 비어 있다. 여러 severity 로 보정한
@@ -423,12 +503,14 @@ Zhu 2022 의 **singular degree** 방식이 아직 비어 있다. 여러 severity
 3. Qin, J., Checherin, S., Li, Y., van der Zwaag, B.-J., Durmaz-Incel, O.
    "Hue4U: Real-Time Personalized Color Correction in Augmented Reality."
    arXiv:2509.06776, 2025.
-4. Zhu, Z., et al. "Image recoloring for color vision deficiency compensation:
+4. 조경선, 고성제. "적록 색각이상자를 위한 모니터 색 보정 시스템 구현."
+   *전자공학회 논문지*, 52(5), 165–173, 2015.
+5. Zhu, Z., et al. "Image recoloring for color vision deficiency compensation:
    a survey." *The Visual Computer*, 2021.
-5. Machado, G. M., Oliveira, M. M., Fernandes, L. A. F.
+6. Machado, G. M., Oliveira, M. M., Fernandes, L. A. F.
    "A Physiologically-based Model for Simulation of Color Vision Deficiency."
    *IEEE TVCG*, 15(6), 1291–1298, 2009.
-6. Barbur, J. L., et al. Colour Assessment and Diagnosis (CAD) test.
+7. Barbur, J. L., et al. Colour Assessment and Diagnosis (CAD) test.
    City St George's, University of London.
-7. Regan, B. C., Reffin, J. P., Mollon, J. D. Cambridge Colour Test.
-8. ClearColorVision (크롬 확장). https://clearcolorvision.org/ — 동료평가 없음
+8. Regan, B. C., Reffin, J. P., Mollon, J. D. Cambridge Colour Test.
+9. ClearColorVision (크롬 확장). https://clearcolorvision.org/ — 동료평가 없음
