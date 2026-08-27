@@ -212,3 +212,42 @@ union-find로 ΔE00가 작은 경계를 차례로 합쳤는데, 안티앨리어�
 4. **실제 이미지가 아직 없다.** `conditions.md`의 수치는 합성 이미지
    기준이다. 실제 이미지를 넣어 다시 돌려야 실험에 쓸 수 있다.
 
+---
+
+## 6. Claude Code CLI MCP 연결 (2026-08-27, Codex)
+
+연구 알고리즘과 무관한 개발 도구 연결을 추가했다. 연구 방향, 임계값, baseline
+구현에는 변경이 없다.
+
+### 구성
+
+- `.codex/config.toml`: 프로젝트 범위 STDIO MCP 서버 `claude_code`를 등록했다.
+- `tools/claude-mcp/server.mjs`: `claude -p --output-format json`을 호출하는
+  의존성 없는 Node.js MCP 브리지다.
+- `ask_claude`: 파일 도구를 끄고 Claude의 독립 의견만 받는다.
+- `review_with_claude`: `Read`, `Glob`, `Grep`만 허용해 저장소를 읽기 전용으로
+  검토한다.
+- 두 도구 모두 `--permission-mode plan`, `--no-session-persistence`를 사용하며,
+  Codex 쪽 호출 승인 모드는 `prompt`다.
+
+Claude CLI 내장 `claude mcp serve`도 프로토콜 초기화에는 성공했지만 Claude에게
+질문하는 도구가 아니라 Claude Code의 `Read`, `Edit`, `Bash`, `Agent` 등 내부
+도구 전체를 노출한다. 이번 목적에는 권한 범위가 지나치게 넓고 직접 자문 결과를
+안정적으로 회수하기 어려워 사용하지 않았다.
+
+### 검증
+
+- `node --test tools/claude-mcp/server.test.mjs`: 1개 테스트 통과. 초기화,
+  도구 목록, 두 도구의 CLI 인자, 입력 오류를 mock CLI로 확인했다.
+- `node tools/claude-mcp/smoke.mjs`: 실제 로그인된 Claude CLI를 통한 MCP 왕복에서
+  `CLAUDE_MCP_OK`를 확인했다.
+- 로컬 샌드박스 안에서는 Claude API 네트워크 호출이 대기하므로 실제 smoke
+  test에는 네트워크 권한이 필요하다. mock 단위 테스트에는 필요하지 않다.
+
+### 남은 제약
+
+- 현재 실행 중인 Codex 세션은 새 MCP 설정을 즉시 다시 읽지 않는다. 프로젝트를
+  신뢰한 상태에서 Codex 앱/CLI의 새 세션을 열고 `/mcp`로 연결을 확인해야 한다.
+- `.codex/config.toml`의 상대 경로는 Codex를 이 저장소에서 시작하는 것을
+  전제로 한다.
+- 실제 Claude 호출은 사용자의 Claude 인증과 사용량 정책을 그대로 사용한다.
