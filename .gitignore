@@ -23,3 +23,16 @@ desktop.ini
 # 임시 결과물
 results/tmp/
 *.log
+
+# ②단계 측정 산출물 (정인교)
+# 합성 이미지와 측정 JSON은 코드로 다시 만들 수 있으므로 커밋하지 않는다.
+data/synthetic/
+results/measurements_*.json
+results/regions.csv
+results/pairs.csv
+results/failure_cases/
+
+# 팀원이 필요로 하는 요약본은 크기가 작으므로 커밋한다.
+!results/conditions.md
+!results/*_sweep.csv
+!results/*_summary.md

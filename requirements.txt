@@ -1,0 +1,7 @@
+numpy>=2.0
+
+# ②단계 탐지·측정 (정인교)
+scikit-image>=0.24   # SLIC 분할
+scipy>=1.11          # 거리변환 (두께 추정)
+pillow>=10.0         # 이미지 입출력
+matplotlib>=3.8      # 보고서 그림
