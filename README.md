@@ -33,7 +33,7 @@ python two_color_demo.py --color-a 220 50 50 --color-b 60 160 60     --type deut
 
 주변 색과의 재혼동까지 막으려면 `--palette` 에 R G B 를 3개씩 이어서 넣습니다.
 
-자동 테스트 (89개, 현재 환경에서 약 2분 40초):
+자동 테스트 (전체 검사는 현재 환경에서 수 분 걸릴 수 있음):
 
 ```bash
 python -m unittest -q
@@ -53,6 +53,15 @@ python -c "from export_tables import export_all; export_all('../results/measurem
 python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 ```
 
+선 굵기 실험 전 px→시각도 확인(숫자는 실제 실험 장치를 직접 재서 입력):
+
+```bash
+python plan_line_widths.py --display-width-mm <화면가로mm> --resolution-px <가로해상도> --viewing-distance-mm <관찰거리mm> --widths-px <얇음> <중간> <두꺼움>
+```
+
+출력의 `inside_szafir_measured_range`가 `false`인 굵기는 Szafir 선행모델의
+측정 범위 밖이다. 경고를 무시하고 본 실험을 시작하지 않는다.
+
 ### 문서
 
 | 파일 | 내용 |
@@ -60,6 +69,7 @@ python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 | [docs/project-context.txt](docs/project-context.txt) | 연구 합의사항 (최상위 기준) |
 | [docs/research-plan.txt](docs/research-plan.txt) | 담당 파트 계획과 알고리즘 설명 |
 | [docs/code-review.md](docs/code-review.md) | 무엇을 왜 고쳤는지, 남은 한계 |
+| [docs/experiment-protocol.md](docs/experiment-protocol.md) | 선 굵기별 C80 실험의 사전 고정 항목과 시작 순서 |
 | [AGENTS.md](AGENTS.md) | Codex·Claude Code 공용 작업 지침 |
 | [docs/handoff-jeongingyo.md](docs/handoff-jeongingyo.md) | ②단계 탐지·측정 인수인계 |
 | [data/real/README.md](data/real/README.md) | 실제 이미지 수집 규칙 |
