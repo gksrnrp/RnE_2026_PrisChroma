@@ -14,7 +14,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--all-examples",
         action="store_true",
-        help="저장소의 초안 예제 5개를 모두 검사합니다.",
+        help="저장소의 초안 예제 6개를 모두 검사합니다.",
     )
     parser.add_argument("--contract", choices=sorted(SCHEMA_PATHS))
     parser.add_argument("--data")

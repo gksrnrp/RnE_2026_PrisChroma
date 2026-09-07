@@ -4,9 +4,10 @@
   "title": "Draft held-out correction color pairs",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "pairs"],
+  "required": ["schema_version", "data_origin", "pairs"],
   "properties": {
     "schema_version": {"const": "0.1-draft"},
+    "data_origin": {"const": "synthetic"},
     "pairs": {
       "type": "array",
       "minItems": 1,

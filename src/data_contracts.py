@@ -30,6 +30,7 @@ SCHEMA_PATHS = {
     "application_conditions": SCHEMA_DIR / "application_conditions.schema.json",
     "validation_pairs": SCHEMA_DIR / "validation_pairs.schema.json",
     "participant_thresholds": SCHEMA_DIR / "participant_thresholds.schema.json",
+    "correction_results": SCHEMA_DIR / "correction_results.schema.json",
 }
 
 EXAMPLE_PATHS = {
@@ -38,6 +39,7 @@ EXAMPLE_PATHS = {
     "application_conditions": EXAMPLE_DIR / "application_conditions.example.json",
     "validation_pairs": EXAMPLE_DIR / "validation_pairs.example.json",
     "participant_thresholds": EXAMPLE_DIR / "participant_thresholds.example.json",
+    "correction_results": EXAMPLE_DIR / "correction_results.example.json",
 }
 
 
@@ -272,12 +274,104 @@ def _validate_participant_thresholds(payload: dict) -> None:
             )
 
 
+def _validate_correction_results(payload: dict) -> None:
+    threshold = payload["threshold"]
+    _assert(
+        threshold["ci_low"] <= threshold["c80_sim"] <= threshold["ci_high"],
+        "correction_results: C80이 신뢰구간 안에 없습니다.",
+    )
+    expected_target = (
+        threshold["c80_sim"]
+        if threshold["target_policy"] == "point"
+        else threshold["ci_high"]
+    )
+    _assert(
+        _close(threshold["selected_target"], expected_target),
+        "correction_results: target_policy와 selected_target이 일치하지 않습니다.",
+    )
+    _assert(
+        threshold["selected_target"] <= threshold["original_min"],
+        "correction_results: selected_target은 original_min보다 클 수 없습니다.",
+    )
+    _assert(
+        payload["search"]["max_shift"] >= payload["search"]["step"],
+        "correction_results: max_shift는 step 이상이어야 합니다.",
+    )
+
+    seen = set()
+    counts = {"unchanged": 0, "corrected": 0, "search_failed": 0}
+    target_met_count = 0
+    for row in payload["results"]:
+        pair_id = row["pair_id"]
+        _assert(pair_id not in seen, f"correction_results: pair_id 중복: {pair_id}")
+        seen.add(pair_id)
+        counts[row["status"]] += 1
+        target_met_count += int(row["target_met"])
+        _assert(
+            row["target_met"]
+            == (row["simulated_delta_e00_after"] + 1e-9 >= expected_target),
+            f"{pair_id}: target_met이 보정 후 색차와 맞지 않습니다.",
+        )
+        _assert(
+            _close(
+                row["total_color_change"],
+                row["color_change_a"] + row["color_change_b"],
+            ),
+            f"{pair_id}: total_color_change가 A+B와 다릅니다.",
+        )
+        if row["status"] == "corrected":
+            _assert(row["strategy"] is not None, f"{pair_id}: 보정 전략이 없습니다.")
+            _assert(row["target_met"], f"{pair_id}: corrected인데 목표를 못 맞췄습니다.")
+            _assert(row["in_srgb_gamut"], f"{pair_id}: corrected 색이 sRGB gamut 밖입니다.")
+            _assert(
+                row["total_color_change"] > 0,
+                f"{pair_id}: corrected인데 색 이동량이 0입니다.",
+            )
+            _assert(
+                row["corrected_rgb_a"] != row["input_rgb_a"]
+                or row["corrected_rgb_b"] != row["input_rgb_b"],
+                f"{pair_id}: corrected인데 RGB가 바뀌지 않았습니다.",
+            )
+        elif row["status"] == "unchanged":
+            _assert(row["strategy"] is None, f"{pair_id}: unchanged에 전략이 있습니다.")
+            _assert(
+                _close(row["total_color_change"], 0.0),
+                f"{pair_id}: unchanged인데 색 이동이 있습니다.",
+            )
+            _assert(
+                row["corrected_rgb_a"] == row["input_rgb_a"]
+                and row["corrected_rgb_b"] == row["input_rgb_b"],
+                f"{pair_id}: unchanged인데 RGB가 바뀌었습니다.",
+            )
+            _assert(
+                not row["palette_constraint_used"],
+                f"{pair_id}: 탐색을 생략했는데 팔레트 제약 사용으로 기록됐습니다.",
+            )
+        else:
+            _assert(row["strategy"] is None, f"{pair_id}: 실패 결과에 전략이 있습니다.")
+            _assert(not row["target_met"], f"{pair_id}: 실패 결과가 목표를 만족합니다.")
+        _assert(
+            not row["palette_constraint_used"] or bool(row["palette"]),
+            f"{pair_id}: 빈 palette에 제약 사용으로 기록됐습니다.",
+        )
+
+    summary = payload["summary"]
+    _assert(summary["pair_count"] == len(payload["results"]), "요약 pair_count 오류")
+    for status, count in counts.items():
+        _assert(
+            summary[f"{status}_count"] == count,
+            f"요약 {status}_count 오류",
+        )
+    _assert(summary["target_met_count"] == target_met_count, "요약 target_met_count 오류")
+
+
 _SEMANTIC_VALIDATORS = {
     "experiment_config": _validate_experiment_config,
     "trial": _validate_trial,
     "application_conditions": _validate_application_conditions,
     "validation_pairs": _validate_validation_pairs,
     "participant_thresholds": _validate_participant_thresholds,
+    "correction_results": _validate_correction_results,
 }
 
 

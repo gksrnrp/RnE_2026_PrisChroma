@@ -1,8 +1,9 @@
-# 적록색약자를 위한 개인화 선택적 AI 색보정
+# 적록색각이상자를 위한 선 굵기별 색 구별 역치 예측과 최소 색이동 보정
 
 혼동 상대가 있는 색만 판정하고, 사용자 시뮬레이션에서 구별 가능한 가장
-가까운 색으로 이동시키는 R&E 2026 프로젝트입니다. 현재 규칙 기반 두 색
-baseline을 구현·검증했으며 AI 단계는 아직 시작하지 않았습니다.
+가까운 색으로 이동시키는 R&E 2026 프로젝트입니다. AI가 없어도 성립하는
+해석 가능한 규칙 기반 연구이며, 현재 두 색 baseline과 개인 C80 연결부를
+구현·검증했습니다.
 
 ## 폴더 구조
 
@@ -71,6 +72,18 @@ python validate_contracts.py --contract participant_thresholds --data ../data/co
 
 `schema_version=0.1-draft`는 사람 자료 수집용이 아니다. 세 명이 필드와 실험
 조건을 합의하고 parameter recovery를 통과한 뒤 별도 변경으로 1.0을 고정한다.
+
+가짜 검증 색쌍과 가짜 개인 C80을 일괄 연결하는 이창민 파트 시험:
+
+```bash
+python run_personal_correction.py --pairs ../data/contracts/validation_pairs.example.json --thresholds ../data/contracts/participant_thresholds.example.json --participant P_SYNTHETIC_01 --model D288 --stroke-width-px 3 --original-min 10 --search-step 0.02 --output ../results/correction_results.synthetic.json --development-mode
+python validate_contracts.py --contract correction_results --data ../results/correction_results.synthetic.json
+```
+
+`--development-mode`은 현재 가짜 자료에서만 쓴다. 실제 자료 형식이 팀 합의로
+확정되기 전에는 이 결과를 연구 결과로 해석하지 않는다. 출력의
+`approximate_pairwise_not_global`은 색쌍별 근사 탐색이며 전체 화면의 전역
+최적화를 보장하지 않는다는 뜻이다.
 
 ### 문서
 

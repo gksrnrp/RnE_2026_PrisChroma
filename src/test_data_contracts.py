@@ -25,6 +25,7 @@ class DataContractTests(unittest.TestCase):
                 "application_conditions": 1,
                 "validation_pairs": 1,
                 "participant_thresholds": 1,
+                "correction_results": 1,
             },
         )
 
@@ -110,6 +111,24 @@ class DataContractTests(unittest.TestCase):
         validation["stable"] = False
         with self.assertRaisesRegex(ContractError, "pooled_c80"):
             validate_payload("participant_thresholds", thresholds)
+
+    def test_correction_summary_must_match_rows(self) -> None:
+        results = _example("correction_results")
+        results["summary"]["corrected_count"] = 2
+        with self.assertRaisesRegex(ContractError, "corrected_count"):
+            validate_payload("correction_results", results)
+
+    def test_correction_target_policy_must_match_selected_target(self) -> None:
+        results = _example("correction_results")
+        results["threshold"]["target_policy"] = "ci_high"
+        with self.assertRaisesRegex(ContractError, "selected_target"):
+            validate_payload("correction_results", results)
+
+    def test_unchanged_result_cannot_claim_palette_search(self) -> None:
+        results = _example("correction_results")
+        results["results"][0]["palette_constraint_used"] = True
+        with self.assertRaisesRegex(ContractError, "탐색을 생략"):
+            validate_payload("correction_results", results)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "correction_results.schema.json",
+  "title": "Draft synthetic personalized correction results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_origin",
+    "generated_by",
+    "optimization_scope",
+    "inputs",
+    "search",
+    "threshold",
+    "summary",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "data_origin": {"const": "synthetic"},
+    "generated_by": {"const": "run_personal_correction.py"},
+    "optimization_scope": {"const": "approximate_pairwise_not_global"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validation_pairs_schema_version", "participant_thresholds_schema_version"],
+      "properties": {
+        "validation_pairs_schema_version": {"const": "0.1-draft"},
+        "participant_thresholds_schema_version": {"const": "0.1-draft"}
+      }
+    },
+    "search": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "max_shift", "direction_grid_radius", "pair_chunk_size"],
+      "properties": {
+        "step": {"type": "number", "exclusiveMinimum": 0},
+        "max_shift": {"type": "number", "exclusiveMinimum": 0},
+        "direction_grid_radius": {"type": "integer", "minimum": 1},
+        "pair_chunk_size": {"type": "integer", "minimum": 1}
+      }
+    },
+    "threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_id", "cvd_type", "severity", "severity_source",
+        "confirmed", "model", "stroke_width_px", "stroke_width_deg",
+        "c80_sim", "ci_low", "ci_high", "value_type", "target_policy",
+        "selected_target", "original_min"
+      ],
+      "properties": {
+        "participant_id": {"type": "string", "pattern": "^P[0-9A-Za-z_-]+$"},
+        "cvd_type": {"enum": ["protan", "deutan"]},
+        "severity": {"type": "number", "minimum": 0, "maximum": 1},
+        "severity_source": {"type": "string", "minLength": 1},
+        "confirmed": {"const": false},
+        "model": {"enum": ["A", "B96", "B288", "C96", "D288"]},
+        "stroke_width_px": {"type": "integer", "minimum": 1},
+        "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+        "c80_sim": {"type": "number", "minimum": 0},
+        "ci_low": {"type": "number", "minimum": 0},
+        "ci_high": {"type": "number", "minimum": 0},
+        "value_type": {"enum": ["measured", "predicted"]},
+        "target_policy": {"enum": ["point", "ci_high"]},
+        "selected_target": {"type": "number", "minimum": 0},
+        "original_min": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pair_count", "unchanged_count", "corrected_count", "search_failed_count", "target_met_count"],
+      "properties": {
+        "pair_count": {"type": "integer", "minimum": 1},
+        "unchanged_count": {"type": "integer", "minimum": 0},
+        "corrected_count": {"type": "integer", "minimum": 0},
+        "search_failed_count": {"type": "integer", "minimum": 0},
+        "target_met_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pair_id", "source_case", "selection_split", "status", "reason", "input_rgb_a",
+          "input_rgb_b", "corrected_rgb_a", "corrected_rgb_b", "palette",
+          "original_delta_e00", "simulated_delta_e00_before",
+          "simulated_delta_e00_after", "target_met", "strategy",
+          "color_change_a", "color_change_b", "total_color_change",
+          "in_srgb_gamut", "palette_constraint_used"
+        ],
+        "properties": {
+          "pair_id": {"type": "string", "minLength": 1},
+          "source_case": {"type": "string", "minLength": 1},
+          "selection_split": {"const": "held_out_from_psychometric_fit"},
+          "status": {"enum": ["unchanged", "corrected", "search_failed"]},
+          "reason": {"type": "string", "minLength": 1},
+          "input_rgb_a": {"$ref": "#/$defs/rgb"},
+          "input_rgb_b": {"$ref": "#/$defs/rgb"},
+          "corrected_rgb_a": {"$ref": "#/$defs/rgb"},
+          "corrected_rgb_b": {"$ref": "#/$defs/rgb"},
+          "palette": {"type": "array", "items": {"$ref": "#/$defs/rgb"}},
+          "original_delta_e00": {"type": "number", "minimum": 0},
+          "simulated_delta_e00_before": {"type": "number", "minimum": 0},
+          "simulated_delta_e00_after": {"type": "number", "minimum": 0},
+          "target_met": {"type": "boolean"},
+          "strategy": {"type": ["string", "null"]},
+          "color_change_a": {"type": "number", "minimum": 0},
+          "color_change_b": {"type": "number", "minimum": 0},
+          "total_color_change": {"type": "number", "minimum": 0},
+          "in_srgb_gamut": {"type": "boolean"},
+          "palette_constraint_used": {"type": "boolean"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rgb": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "integer", "minimum": 0, "maximum": 255}
+    }
+  }
+}
