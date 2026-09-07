@@ -310,3 +310,16 @@ Claude CLI 내장 `claude mcp serve`도 프로토콜 초기화에는 성공했�
 원자료 경로 `data/experiment/raw/`와 개인정보 경로
 `data/experiment/private/`는 Git에서 제외했다. 다음 단계는 세 팀원의 필드 검토와
 가짜 시행→C80→보정의 end-to-end 연결이다.
+
+### 이창민 연결 모듈
+
+`threshold_adapter.py`는 참가자·모델·정수 픽셀 굵기가 정확히 일치하는 C80만
+읽는다. 없는 굵기를 보간하거나 0.62/3.0으로 대체하지 않는다. 기본 모드에서는
+synthetic 또는 `confirmed=false` 자료를 거부하며, 초안 연결 시험은
+`development_mode=True`를 읽기와 변환 양쪽에 명시해야 한다.
+
+주 분석은 C80 점추정치를, 민감도 분석은 신뢰구간 상한을 선택할 수 있다.
+`original_min`은 C80과 다른 별도 변수이므로 호출자가 명시적으로 제공해야 한다.
+
+검증 결과: 계약·adapter 관련 검사 29개와 저장소 전체 검사 123개가 모두
+통과했다.
