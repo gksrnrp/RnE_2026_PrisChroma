@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1-draft",
+  "pairs": [
+    {
+      "pair_id": "PAIR_EXAMPLE_01",
+      "rgb_a": [220, 50, 50],
+      "rgb_b": [60, 160, 60],
+      "palette": [[20, 175, 100]],
+      "source_case": "CASE_EXAMPLE_01",
+      "selection_split": "held_out_from_psychometric_fit",
+      "notes": "형식 검증용 예시이며 실제 독립 검증쌍이 아니다."
+    }
+  ]
+}

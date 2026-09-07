@@ -32,6 +32,10 @@ results/regions.csv
 results/pairs.csv
 results/failure_cases/
 
+# Participant records stay local. Only de-identified summaries are committed.
+data/experiment/raw/
+data/experiment/private/
+
 # 팀원이 필요로 하는 요약본은 크기가 작으므로 커밋한다.
 !results/conditions.md
 !results/*_sweep.csv

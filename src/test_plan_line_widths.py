@@ -18,6 +18,17 @@ class BuildWidthReportTests(unittest.TestCase):
         )
         self.assertTrue(report["warnings"])
 
+    def test_warns_when_geometric_candidate_is_fractional_pixel(self) -> None:
+        report = build_width_report(
+            [2, 6, 12],
+            display_width_mm=530,
+            horizontal_resolution_px=1920,
+            viewing_distance_mm=600,
+        )
+        self.assertTrue(
+            any("소수 픽셀" in warning for warning in report["warnings"])
+        )
+
     def test_requires_three_increasing_widths(self) -> None:
         with self.assertRaises(ValueError):
             build_width_report(

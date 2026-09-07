@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "participant_thresholds.schema.json",
+  "title": "Draft synthetic participant threshold predictions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "data_origin", "coordinate", "participants"],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "data_origin": {"const": "synthetic"},
+    "coordinate": {"const": "post_machado_delta_e00"},
+    "participants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "participant_id",
+          "cvd_type",
+          "severity",
+          "severity_source",
+          "confirmed",
+          "predictions",
+          "validation"
+        ],
+        "properties": {
+          "participant_id": {"type": "string", "pattern": "^P[0-9A-Za-z_-]+$"},
+          "cvd_type": {"enum": ["protan", "deutan"]},
+          "severity": {"type": "number", "minimum": 0, "maximum": 1},
+          "severity_source": {"type": "string", "minLength": 1},
+          "confirmed": {"const": false},
+          "predictions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["model", "stroke_width_px", "stroke_width_deg", "c80_sim", "ci_low", "ci_high", "value_type"],
+              "properties": {
+                "model": {"enum": ["A", "B96", "B288", "C96", "D288"]},
+                "stroke_width_px": {"type": "integer", "minimum": 1},
+                "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+                "c80_sim": {"type": "number", "minimum": 0},
+                "ci_low": {"type": "number", "minimum": 0},
+                "ci_high": {"type": "number", "minimum": 0},
+                "value_type": {"enum": ["measured", "predicted"]}
+              }
+            }
+          },
+          "validation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stroke_width_px", "stroke_width_deg", "staircase_c80", "coefficient_of_variation", "stable", "pooled_c80"],
+            "properties": {
+              "stroke_width_px": {"type": "integer", "minimum": 1},
+              "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+              "staircase_c80": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {"type": "number", "minimum": 0}
+              },
+              "coefficient_of_variation": {"type": "number", "minimum": 0},
+              "stable": {"type": "boolean"},
+              "pooled_c80": {"type": ["number", "null"], "minimum": 0}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "schema_version": "0.1-draft",
+  "config_version": "EXAMPLE_NOT_FOR_HUMAN_DATA",
+  "status": "draft",
+  "human_data_collection_allowed": false,
+  "task": {
+    "type": "4afc_odd_one_out",
+    "layout": "2x2",
+    "choice_count": 4,
+    "practice_feedback": true,
+    "main_feedback": false
+  },
+  "display": {
+    "model": "EXAMPLE_DISPLAY",
+    "width_mm": 530.0,
+    "resolution_width_px": 1920,
+    "resolution_height_px": 1080,
+    "os_scale_percent": 100.0,
+    "app_scale_percent": 100.0,
+    "viewing_distance_mm": 600.0,
+    "background_rgb": [117, 117, 117]
+  },
+  "line": {
+    "length_px": 300,
+    "orientation_deg": 0.0,
+    "cap": "butt",
+    "antialiasing": "EXAMPLE_RENDERER_NOT_FROZEN"
+  },
+  "color_design": {
+    "midpoint_lab": [60.0, 0.0, 0.0],
+    "direction_lab": [0.0, 1.0, 0.0],
+    "symmetric_about_midpoint": true
+  },
+  "calibration": {
+    "widths": [
+      {"width_px": 2, "width_deg": 0.052720071179545365},
+      {"width_px": 6, "width_deg": 0.1581601242672588},
+      {"width_px": 12, "width_deg": 0.3163196459553995}
+    ],
+    "trials_per_width": 96
+  },
+  "validation": {
+    "candidates": [
+      {
+        "geometric_target_px": 3.4641016151377544,
+        "rendered_width_px": 3,
+        "width_deg": 0.07908009979498572
+      },
+      {
+        "geometric_target_px": 8.48528137423857,
+        "rendered_width_px": 8,
+        "width_deg": 0.21088006153993671
+      }
+    ],
+    "independent_staircases": 3,
+    "trials_per_staircase": 60
+  },
+  "staircase": {
+    "method": "EXAMPLE_METHOD_NOT_FROZEN",
+    "starting_delta_e00": 5.0,
+    "minimum_delta_e00": 0.0,
+    "maximum_delta_e00": 20.0,
+    "update_rule": "EXAMPLE_RULE_NOT_FROZEN",
+    "lapse_policy": "estimated",
+    "fixed_lapse": null
+  },
+  "model_plan": {
+    "models": ["A", "B96", "B288", "C96", "D288"],
+    "include_szafir_transfer": true,
+    "szafir_probability_coordinate": 0.5
+  }
+}

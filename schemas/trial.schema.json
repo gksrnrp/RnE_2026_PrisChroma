@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trial.schema.json",
+  "title": "Draft synthetic 4AFC trial record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_origin",
+    "config_version",
+    "participant_id",
+    "session_id",
+    "staircase_id",
+    "trial_id",
+    "phase",
+    "trial_status",
+    "stroke_width_px",
+    "stroke_width_deg",
+    "displayed_rgb_a",
+    "displayed_rgb_b",
+    "simulated_rgb_a",
+    "simulated_rgb_b",
+    "delta_e00_original",
+    "delta_e00_simulated",
+    "correct_position",
+    "response_position",
+    "is_correct",
+    "cvd_type",
+    "machado_severity",
+    "severity_source",
+    "random_seed"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "data_origin": {"const": "synthetic"},
+    "config_version": {"type": "string", "minLength": 1},
+    "participant_id": {"type": "string", "pattern": "^P[0-9A-Za-z_-]+$"},
+    "session_id": {"type": "string", "minLength": 1},
+    "staircase_id": {"type": ["string", "null"]},
+    "trial_id": {"type": "integer", "minimum": 1},
+    "phase": {"enum": ["practice", "calibration", "validation"]},
+    "trial_status": {"enum": ["completed", "aborted"]},
+    "stroke_width_px": {"type": "integer", "minimum": 1},
+    "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+    "displayed_rgb_a": {"$ref": "#/$defs/rgb"},
+    "displayed_rgb_b": {"$ref": "#/$defs/rgb"},
+    "simulated_rgb_a": {"$ref": "#/$defs/rgb_number"},
+    "simulated_rgb_b": {"$ref": "#/$defs/rgb_number"},
+    "delta_e00_original": {"type": "number", "minimum": 0},
+    "delta_e00_simulated": {"type": "number", "minimum": 0},
+    "correct_position": {"type": "integer", "minimum": 1, "maximum": 4},
+    "response_position": {"type": ["integer", "null"], "minimum": 1, "maximum": 4},
+    "is_correct": {"type": ["boolean", "null"]},
+    "cvd_type": {"enum": ["protan", "deutan"]},
+    "machado_severity": {"type": "number", "minimum": 0, "maximum": 1},
+    "severity_source": {"type": "string", "minLength": 1},
+    "random_seed": {"type": "integer", "minimum": 0}
+  },
+  "$defs": {
+    "rgb": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "integer", "minimum": 0, "maximum": 255}
+    },
+    "rgb_number": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "number", "minimum": 0, "maximum": 255}
+    }
+  }
+}

@@ -62,6 +62,16 @@ python plan_line_widths.py --display-width-mm <화면가로mm> --resolution-px <
 출력의 `inside_szafir_measured_range`가 `false`인 굵기는 Szafir 선행모델의
 측정 범위 밖이다. 경고를 무시하고 본 실험을 시작하지 않는다.
 
+공통 데이터 형식 초안 검사(현재는 가짜 데이터만 허용):
+
+```bash
+python validate_contracts.py --all-examples
+python validate_contracts.py --contract participant_thresholds --data ../data/contracts/participant_thresholds.example.json
+```
+
+`schema_version=0.1-draft`는 사람 자료 수집용이 아니다. 세 명이 필드와 실험
+조건을 합의하고 parameter recovery를 통과한 뒤 별도 변경으로 1.0을 고정한다.
+
 ### 문서
 
 | 파일 | 내용 |
@@ -70,6 +80,7 @@ python plan_line_widths.py --display-width-mm <화면가로mm> --resolution-px <
 | [docs/research-plan.txt](docs/research-plan.txt) | 담당 파트 계획과 알고리즘 설명 |
 | [docs/code-review.md](docs/code-review.md) | 무엇을 왜 고쳤는지, 남은 한계 |
 | [docs/experiment-protocol.md](docs/experiment-protocol.md) | 선 굵기별 C80 실험의 사전 고정 항목과 시작 순서 |
+| [schemas/](schemas/) | 세 팀원이 주고받는 데이터 형식 초안 |
 | [AGENTS.md](AGENTS.md) | Codex·Claude Code 공용 작업 지침 |
 | [docs/handoff-jeongingyo.md](docs/handoff-jeongingyo.md) | ②단계 탐지·측정 인수인계 |
 | [data/real/README.md](data/real/README.md) | 실제 이미지 수집 규칙 |

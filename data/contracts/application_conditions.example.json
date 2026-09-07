@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1-draft",
+  "cases": [
+    {
+      "case_id": "CASE_EXAMPLE_01",
+      "source_id": "SOURCE_EXAMPLE_01",
+      "viewport_width_px": 1920,
+      "viewport_height_px": 1080,
+      "stroke_width_px": 5.0,
+      "stroke_width_ratio": 0.0026041666666666665,
+      "distance_px": 300.0,
+      "line_rgb": [220, 50, 50],
+      "background_rgb": [255, 255, 255],
+      "measurement_method": "manual_verified",
+      "quality_flag": "exploratory",
+      "notes": "형식 검증용 예시이며 실제 연구 자료가 아니다."
+    }
+  ]
+}

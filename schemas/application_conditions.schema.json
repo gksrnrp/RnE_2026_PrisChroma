@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "application_conditions.schema.json",
+  "title": "Draft application line-condition measurements",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cases"],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "source_id",
+          "viewport_width_px",
+          "viewport_height_px",
+          "stroke_width_px",
+          "stroke_width_ratio",
+          "line_rgb",
+          "background_rgb",
+          "measurement_method",
+          "quality_flag",
+          "notes"
+        ],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "source_id": {"type": "string", "minLength": 1},
+          "viewport_width_px": {"type": "integer", "minimum": 1},
+          "viewport_height_px": {"type": "integer", "minimum": 1},
+          "stroke_width_px": {"type": ["number", "null"], "exclusiveMinimum": 0},
+          "stroke_width_ratio": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1},
+          "distance_px": {"type": ["number", "null"], "minimum": 0},
+          "line_rgb": {"$ref": "#/$defs/rgb"},
+          "background_rgb": {"$ref": "#/$defs/rgb"},
+          "measurement_method": {"enum": ["automatic", "manual_verified", "detection_failed"]},
+          "quality_flag": {"enum": ["usable", "exploratory", "excluded"]},
+          "notes": {"type": "string"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rgb": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "integer", "minimum": 0, "maximum": 255}
+    }
+  }
+}

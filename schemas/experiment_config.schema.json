@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "experiment_config.schema.json",
+  "title": "Draft line-width experiment configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "config_version",
+    "status",
+    "human_data_collection_allowed",
+    "task",
+    "display",
+    "line",
+    "color_design",
+    "calibration",
+    "validation",
+    "staircase",
+    "model_plan"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "config_version": {"type": "string", "minLength": 1},
+    "status": {"const": "draft"},
+    "human_data_collection_allowed": {"const": false},
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "layout", "choice_count", "practice_feedback", "main_feedback"],
+      "properties": {
+        "type": {"const": "4afc_odd_one_out"},
+        "layout": {"const": "2x2"},
+        "choice_count": {"const": 4},
+        "practice_feedback": {"type": "boolean"},
+        "main_feedback": {"type": "boolean"}
+      }
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "width_mm",
+        "resolution_width_px",
+        "resolution_height_px",
+        "os_scale_percent",
+        "app_scale_percent",
+        "viewing_distance_mm",
+        "background_rgb"
+      ],
+      "properties": {
+        "model": {"type": "string", "minLength": 1},
+        "width_mm": {"type": "number", "exclusiveMinimum": 0},
+        "resolution_width_px": {"type": "integer", "minimum": 1},
+        "resolution_height_px": {"type": "integer", "minimum": 1},
+        "os_scale_percent": {"type": "number", "exclusiveMinimum": 0},
+        "app_scale_percent": {"type": "number", "exclusiveMinimum": 0},
+        "viewing_distance_mm": {"type": "number", "exclusiveMinimum": 0},
+        "background_rgb": {"$ref": "#/$defs/rgb"}
+      }
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["length_px", "orientation_deg", "cap", "antialiasing"],
+      "properties": {
+        "length_px": {"type": "integer", "minimum": 1},
+        "orientation_deg": {"type": "number", "minimum": -360, "maximum": 360},
+        "cap": {"enum": ["butt", "round", "square"]},
+        "antialiasing": {"type": "string", "minLength": 1}
+      }
+    },
+    "color_design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["midpoint_lab", "direction_lab", "symmetric_about_midpoint"],
+      "properties": {
+        "midpoint_lab": {"$ref": "#/$defs/lab"},
+        "direction_lab": {"$ref": "#/$defs/lab"},
+        "symmetric_about_midpoint": {"const": true}
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["widths", "trials_per_width"],
+      "properties": {
+        "widths": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/rendered_width"}
+        },
+        "trials_per_width": {"type": "integer", "minimum": 1}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidates", "independent_staircases", "trials_per_staircase"],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["geometric_target_px", "rendered_width_px", "width_deg"],
+            "properties": {
+              "geometric_target_px": {"type": "number", "exclusiveMinimum": 0},
+              "rendered_width_px": {"type": "integer", "minimum": 1},
+              "width_deg": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        },
+        "independent_staircases": {"type": "integer", "minimum": 1},
+        "trials_per_staircase": {"type": "integer", "minimum": 1}
+      }
+    },
+    "staircase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "starting_delta_e00",
+        "minimum_delta_e00",
+        "maximum_delta_e00",
+        "update_rule",
+        "lapse_policy",
+        "fixed_lapse"
+      ],
+      "properties": {
+        "method": {"type": "string", "minLength": 1},
+        "starting_delta_e00": {"type": "number", "exclusiveMinimum": 0},
+        "minimum_delta_e00": {"type": "number", "minimum": 0},
+        "maximum_delta_e00": {"type": "number", "exclusiveMinimum": 0},
+        "update_rule": {"type": "string", "minLength": 1},
+        "lapse_policy": {"enum": ["fixed", "shared", "estimated"]},
+        "fixed_lapse": {"type": ["number", "null"], "minimum": 0, "maximum": 0.19}
+      }
+    },
+    "model_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["models", "include_szafir_transfer", "szafir_probability_coordinate"],
+      "properties": {
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["A", "B96", "B288", "C96", "D288"]}
+        },
+        "include_szafir_transfer": {"type": "boolean"},
+        "szafir_probability_coordinate": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
+      }
+    }
+  },
+  "$defs": {
+    "rgb": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "integer", "minimum": 0, "maximum": 255}
+    },
+    "lab": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "number"}
+    },
+    "rendered_width": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_px", "width_deg"],
+      "properties": {
+        "width_px": {"type": "integer", "minimum": 1},
+        "width_deg": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

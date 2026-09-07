@@ -1,0 +1,33 @@
+{
+  "schema_version": "0.1-draft",
+  "data_origin": "synthetic",
+  "coordinate": "post_machado_delta_e00",
+  "participants": [
+    {
+      "participant_id": "P_SYNTHETIC_01",
+      "cvd_type": "deutan",
+      "severity": 0.7,
+      "severity_source": "SYNTHETIC_EXAMPLE_ONLY",
+      "confirmed": false,
+      "predictions": [
+        {
+          "model": "D288",
+          "stroke_width_px": 3,
+          "stroke_width_deg": 0.07908009979498572,
+          "c80_sim": 2.8,
+          "ci_low": 2.3,
+          "ci_high": 3.4,
+          "value_type": "predicted"
+        }
+      ],
+      "validation": {
+        "stroke_width_px": 3,
+        "stroke_width_deg": 0.07908009979498572,
+        "staircase_c80": [2.7, 2.9, 2.8],
+        "coefficient_of_variation": 0.0357142857142857,
+        "stable": true,
+        "pooled_c80": 2.8
+      }
+    }
+  ]
+}

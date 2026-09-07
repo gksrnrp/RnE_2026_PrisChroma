@@ -52,6 +52,12 @@ def build_width_report(
             "교정 굵기 중 Szafir 원 논문 측정 범위(0.05~0.35도) 밖의 값이 "
             "있습니다. 전이 모델 C의 주 분석에 그대로 사용하지 마세요."
         )
+    if any(not row["width_px"].is_integer() for row in validation):
+        warnings.append(
+            "기하평균 검증 후보가 소수 픽셀입니다. 실제 래스터 자극에서는 "
+            "가까운 서로 다른 정수 픽셀을 사전에 선택하고, 실제 렌더링 굵기의 "
+            "시각도를 다시 계산해 기록하세요."
+        )
     rounded_unique = {round(row["width_px"]) for row in validation}
     if len(rounded_unique) < len(validation) or any(
         round(row["width_px"]) in {round(value) for value in widths_px}
