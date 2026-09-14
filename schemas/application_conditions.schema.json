@@ -4,9 +4,10 @@
   "title": "Draft application line-condition measurements",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "cases"],
+  "required": ["schema_version", "data_origin", "cases"],
   "properties": {
     "schema_version": {"const": "0.1-draft"},
+    "data_origin": {"const": "synthetic"},
     "cases": {
       "type": "array",
       "minItems": 1,

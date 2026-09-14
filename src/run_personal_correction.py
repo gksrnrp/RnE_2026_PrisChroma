@@ -117,6 +117,7 @@ def run_personal_corrections(
         "data_origin": estimate.data_origin,
         "generated_by": "run_personal_correction.py",
         "optimization_scope": "approximate_pairwise_not_global",
+        "interpretation_scope": "model_constraint_only_not_human_readability",
         "inputs": {
             "validation_pairs_schema_version": pairs_payload["schema_version"],
             "participant_thresholds_schema_version": estimate.schema_version,
@@ -185,7 +186,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--pairs", required=True)
     parser.add_argument("--thresholds", required=True)
     parser.add_argument("--participant", required=True)
-    parser.add_argument("--model", required=True, choices=["A", "B96", "B288", "C96", "D288"])
+    parser.add_argument(
+        "--model", required=True, choices=["B96", "B288", "C96", "D288"]
+    )
     parser.add_argument("--stroke-width-px", required=True, type=int)
     parser.add_argument("--original-min", required=True, type=float)
     parser.add_argument("--target-policy", choices=["point", "ci_high"], default="point")

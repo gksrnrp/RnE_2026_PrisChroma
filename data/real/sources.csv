@@ -1,2 +1,1 @@
 filename,category,source_url,license,license_url,author,obtained_on,screen_diagonal_inch,screen_width_px,screen_height_px,viewing_distance_cm,color_carries_information,notes
-example_subway_seoul.png,노선도,https://example.org/map,공공누리 제1유형,https://www.kogl.or.kr/info/license.do,서울교통공사,2026-08-20,15.6,1920,1080,50,yes,예시 행이다. 실제 수집 후 지우고 채운다

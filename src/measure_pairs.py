@@ -66,19 +66,22 @@ def _simulated_lab(
 
 
 def _bbox_gap(boxes: np.ndarray, index_a: np.ndarray, index_b: np.ndarray):
-    """두 영역 경계상자 사이의 최단 거리를 벡터화해 계산한다.
+    """두 영역 경계상자 사이 빈 픽셀 수의 최단거리를 계산한다.
 
-    실제 픽셀 경계 사이 거리가 아니라 경계상자 사이 거리이므로 값이
-    실제보다 작게 나온다. 대각으로 뻗은 선처럼 상자가 헐거운 모양에서
-    특히 그렇다. 대신 쌍 수가 수만 개여도 즉시 계산된다.
+    bbox의 최댓값은 포함되는 픽셀 좌표다. 따라서 한 축에서 ``A.max=10``,
+    ``B.min=11``이면 두 상자는 맞닿아 있고 그 사이 빈 픽셀은 0개다.
+    실제 영역 경계가 아니라 경계상자를 쓰므로 대각선처럼 상자가 헐거운
+    모양에서는 여전히 실제 간격보다 작게 나올 수 있다.
     """
     a_min_row, a_min_col, a_max_row, a_max_col = boxes[index_a].T
     b_min_row, b_min_col, b_max_row, b_max_col = boxes[index_b].T
     row_gap = np.maximum(
-        np.maximum(b_min_row - a_max_row, a_min_row - b_max_row), 0.0
+        np.maximum(b_min_row - a_max_row - 1.0, a_min_row - b_max_row - 1.0),
+        0.0,
     )
     column_gap = np.maximum(
-        np.maximum(b_min_col - a_max_col, a_min_col - b_max_col), 0.0
+        np.maximum(b_min_col - a_max_col - 1.0, a_min_col - b_max_col - 1.0),
+        0.0,
     )
     return np.hypot(row_gap, column_gap)
 

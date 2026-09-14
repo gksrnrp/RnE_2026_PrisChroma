@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "config_version": "PLACEHOLDER_NOT_FOR_HUMAN_COLLECTION",
+  "status": "template",
+  "human_data_collection_allowed": false,
+  "task": {
+    "type": "4afc_odd_one_out",
+    "layout": "2x2",
+    "choice_count": 4,
+    "practice_feedback": true,
+    "main_feedback": false
+  },
+  "observer_profile": {
+    "participant_id": "P_PLACEHOLDER",
+    "cvd_type": "deutan",
+    "severity": 0.5,
+    "severity_source": "PLACEHOLDER_NOT_MEASURED",
+    "severity_session_id": "PLACEHOLDER_SEVERITY_SESSION",
+    "fixed_lapse": 0.01,
+    "lapse_source": "PLACEHOLDER_NOT_MEASURED",
+    "lapse_session_id": "PLACEHOLDER_LAPSE_SESSION"
+  },
+  "display": {
+    "model": "PLACEHOLDER_DISPLAY",
+    "width_mm": 1.0,
+    "resolution_width_px": 1,
+    "resolution_height_px": 1,
+    "os_scale_percent": 100.0,
+    "app_scale_percent": 100.0,
+    "viewing_distance_mm": 1.0,
+    "background_rgb": [0, 0, 0],
+    "color_profile": "PLACEHOLDER_PROFILE",
+    "calibration_id": "PLACEHOLDER_CALIBRATION",
+    "luminance_cd_m2": 1.0,
+    "luminance_measurement_method": "PLACEHOLDER_NOT_MEASURED",
+    "width_measurement_method": "PLACEHOLDER_NOT_MEASURED",
+    "viewing_distance_control": "PLACEHOLDER_NOT_MEASURED",
+    "operating_system": "PLACEHOLDER_NOT_MEASURED",
+    "native_gui_runtime": "PLACEHOLDER_NOT_MEASURED",
+    "pixel_mapping_verification": "PLACEHOLDER_NOT_VERIFIED",
+    "ambient_light_condition": "PLACEHOLDER_NOT_MEASURED",
+    "ambient_light_measurement_method": "PLACEHOLDER_NOT_MEASURED",
+    "night_mode_disabled": true
+  },
+  "line": {
+    "length_px": 1,
+    "orientation_deg": 0.0,
+    "cap": "butt",
+    "antialiasing": "PLACEHOLDER_NOT_VERIFIED",
+    "renderer": "PLACEHOLDER_NOT_VERIFIED",
+    "pixel_snapping": "PLACEHOLDER_NOT_VERIFIED"
+  },
+  "coordinates": {
+    "positions_px": [[0, 0], [1, 0], [0, 1], [1, 1]],
+    "center_spacing_px": 1.0
+  },
+  "color_design": {
+    "stimulus_family_id": "PLACEHOLDER_FAMILY",
+    "midpoint_lab": [50.0, 0.0, 0.0],
+    "direction_lab": [0.0, 1.0, 0.0],
+    "symmetric_about_midpoint": true,
+    "gamut_policy": "reject",
+    "rgb_quantization": "nearest_8bit",
+    "target_absolute_tolerance_delta_e00": 0.01,
+    "target_relative_tolerance": 0.01,
+    "search_grid_steps": 32
+  },
+  "calibration": {
+    "widths": [
+      {"width_px": 1, "width_deg": 0.01},
+      {"width_px": 2, "width_deg": 0.02},
+      {"width_px": 3, "width_deg": 0.03}
+    ],
+    "trials_per_width": 96
+  },
+  "validation": {
+    "candidates": [
+      {"geometric_target_px": 1.5, "rendered_width_px": 1, "width_deg": 0.01},
+      {"geometric_target_px": 2.5, "rendered_width_px": 2, "width_deg": 0.02}
+    ],
+    "independent_blocks": 3,
+    "delta_e00_level_count": 8,
+    "trials_per_block": 64,
+    "randomization": "PLACEHOLDER_NOT_PREREGISTERED"
+  },
+  "sampling": {
+    "delta_e00_levels": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
+    "randomization": "balanced-4-session-blocks-within-block-shuffle",
+    "practice_trials": 6
+  },
+  "model_plan": {
+    "models": ["B96", "B288", "C96", "D288"],
+    "include_szafir_transfer": true,
+    "szafir_probability_coordinate": 0.5
+  },
+  "privacy": {
+    "approved": false,
+    "approval_id": "PLACEHOLDER_NOT_APPROVED",
+    "approved_at_utc": "1970-01-01T00:00:00Z",
+    "consent_version": "PLACEHOLDER_NOT_APPROVED",
+    "pseudonymization": "PLACEHOLDER_NOT_APPROVED",
+    "storage_policy": "PLACEHOLDER_NOT_APPROVED"
+  },
+  "journal": {
+    "storage_policy": "repository-relative-gitignored",
+    "root_repository_relative": "data/experiment/raw",
+    "phase_files": {
+      "practice": "P_PLACEHOLDER-practice.jsonl",
+      "calibration": "P_PLACEHOLDER-calibration.jsonl",
+      "validation": "P_PLACEHOLDER-validation.jsonl"
+    },
+    "session_ids": {
+      "practice": "P_PLACEHOLDER-PRACTICE-01",
+      "calibration": {
+        "1": "P_PLACEHOLDER-CAL-01",
+        "2": "P_PLACEHOLDER-CAL-02",
+        "3": "P_PLACEHOLDER-CAL-03",
+        "4": "P_PLACEHOLDER-CAL-04"
+      },
+      "validation": {
+        "V01": "P_PLACEHOLDER-VAL-01",
+        "V02": "P_PLACEHOLDER-VAL-02",
+        "V03": "P_PLACEHOLDER-VAL-03"
+      }
+    }
+  },
+  "timing": {
+    "fixation_ms": 1.0,
+    "inter_trial_ms": 1.0,
+    "response_deadline_policy": "unlimited",
+    "response_deadline_ms": null,
+    "active_trial_abort_policy": "invalidate-analysis-no-retry",
+    "max_session_duration_min": 1.0,
+    "incomplete_block_time_limit_policy": "invalidate-participant-dataset-no-retry",
+    "planned_break_interval_trials": 1,
+    "planned_break_duration_min": 1.0,
+    "stop_rules": "PLACEHOLDER_NOT_APPROVED",
+    "resume_policy": "append-only-retry-incomplete"
+  }
+}

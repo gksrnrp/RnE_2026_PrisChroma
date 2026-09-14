@@ -8,12 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from export_tables import (
-    MEASURED_OPTIMAL_THRESHOLD,
-    build_conditions,
-    collect_rows,
-    export_all,
-)
+from export_tables import build_conditions, collect_rows, export_all
 
 
 def _region(region_id, rgb, area, stroke, arcmin=None):
@@ -128,17 +123,18 @@ class BuildConditionsTests(unittest.TestCase):
         # 배경이 끼지 않은 쌍은 셋 중 하나뿐이다.
         self.assertIn("| 배경이 끼지 않은 쌍 | 1 |", text)
 
-    def test_states_the_measured_threshold_caveat(self):
+    def test_does_not_generate_a_threshold_or_factorial_protocol(self):
         payload = _payload()
         text = build_conditions(payload, *collect_rows(payload))
-        self.assertIn(str(MEASURED_OPTIMAL_THRESHOLD), text)
-        self.assertIn("맞붙여", text)
+        self.assertIn("0.62", text)
+        self.assertIn("사용하지 않는다", text)
+        self.assertNotIn("환산 비율 =", text)
 
-    def test_has_four_stimulus_conditions(self):
+    def test_marks_output_as_exploratory_not_experimental_protocol(self):
         payload = _payload()
         text = build_conditions(payload, *collect_rows(payload))
-        for label in ("얇음(5%)", "보통(50%)", "가까움(25%)", "멂(75%)"):
-            self.assertIn(label, text)
+        self.assertIn("탐색적 참고자료", text)
+        self.assertIn("사전등록한 세 굵기", text)
 
 
 class ExportAllTests(unittest.TestCase):

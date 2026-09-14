@@ -4,10 +4,11 @@
   "title": "Draft held-out correction color pairs",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "data_origin", "pairs"],
+  "required": ["schema_version", "data_origin", "interpretation_scope", "pairs"],
   "properties": {
     "schema_version": {"const": "0.1-draft"},
     "data_origin": {"const": "synthetic"},
+    "interpretation_scope": {"const": "software_pipeline_only_not_behavioral_validation"},
     "pairs": {
       "type": "array",
       "minItems": 1,
@@ -21,7 +22,7 @@
           "rgb_b": {"$ref": "#/$defs/rgb"},
           "palette": {"type": "array", "items": {"$ref": "#/$defs/rgb"}},
           "source_case": {"type": "string", "minLength": 1},
-          "selection_split": {"const": "held_out_from_psychometric_fit"},
+          "selection_split": {"const": "synthetic_pipeline_check"},
           "notes": {"type": "string"}
         }
       }

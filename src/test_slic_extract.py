@@ -9,6 +9,8 @@ import numpy as np
 
 from slic_extract import (
     Region,
+    _merge_labels,
+    _stroke_width,
     build_adjacency,
     describe_regions,
     estimate_background,
@@ -72,6 +74,15 @@ class DescribeRegionsTests(unittest.TestCase):
         line = next(region for region in regions if region.region_id == 1)
         self.assertAlmostEqual(line.stroke_width_px, 2.0, places=6)
 
+    def test_straight_line_width_counts_odd_and_even_pixels(self):
+        for width in (1, 2, 3, 4, 5, 6):
+            with self.subTest(width=width, orientation="vertical"):
+                vertical = np.ones((24, width), dtype=bool)
+                self.assertAlmostEqual(_stroke_width(vertical), float(width))
+            with self.subTest(width=width, orientation="horizontal"):
+                horizontal = np.ones((width, 24), dtype=bool)
+                self.assertAlmostEqual(_stroke_width(horizontal), float(width))
+
     def test_small_regions_are_dropped(self):
         labels = np.zeros((8, 8), dtype=np.int64)
         labels[0, 0] = 1
@@ -86,6 +97,24 @@ class DescribeRegionsTests(unittest.TestCase):
         uniform = describe_regions(self.image, labels)[0]
         blended = describe_regions(mixed, labels)[0]
         self.assertGreater(blended.color_spread, uniform.color_spread)
+
+
+class MergeLabelsTests(unittest.TestCase):
+    def test_rechecks_neighbor_that_crosses_threshold_after_merge(self):
+        # 0-1은 처음부터 threshold 안이다. 1-2는 처음엔 밖이지만 0-1의
+        # 넓이 가중 평균색과 2의 색차는 threshold 안으로 들어온다.
+        labels = np.asarray([[0, 1, 2]], dtype=np.int64)
+        colors = np.asarray(
+            [[120, 120, 120], [110, 110, 110], [140, 140, 140]], dtype=int
+        )
+        merged = _merge_labels(
+            labels,
+            {(0, 1): 1, (1, 2): 1},
+            colors,
+            np.ones(3, dtype=float),
+            merge_thresh=10.0,
+        )
+        self.assertEqual(np.unique(merged).size, 1)
 
 
 class BackgroundTests(unittest.TestCase):

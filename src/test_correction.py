@@ -226,7 +226,11 @@ class ReconfusionTests(unittest.TestCase):
     TARGET = 15.0
     COLOR_A = (220, 50, 50)
     COLOR_B = (60, 160, 60)
-    THIRD = (20, 175, 100)
+    # NEW_COLLISION_THIRD는 B와 보정 전에는 target 밖이지만, palette 없는
+    # B_only 해와는 target 안으로 들어온다. EXISTING_CONFLICT_THIRD는
+    # 보정 전부터 가까워서 현재 색쌍 보정이 억지로 해결하면 안 되는 사례다.
+    NEW_COLLISION_THIRD = (96, 160, 128)
+    EXISTING_CONFLICT_THIRD = (20, 175, 100)
 
     def _simulated_distance(self, first, second) -> float:
         return color_distance(
@@ -257,14 +261,24 @@ class ReconfusionTests(unittest.TestCase):
             )
             if tuple(corrected) != original
         ]
-        closest = min(self._simulated_distance(c, self.THIRD) for c in moved)
+        self.assertGreaterEqual(
+            self._simulated_distance(self.COLOR_B, self.NEW_COLLISION_THIRD),
+            self.TARGET,
+        )
+        closest = min(
+            self._simulated_distance(c, self.NEW_COLLISION_THIRD) for c in moved
+        )
         self.assertLess(closest, self.TARGET)
         self.assertFalse(result["search"]["reconfusion_checked"])
 
-    def test_palette_keeps_every_moved_color_away_from_third_color(self) -> None:
-        result = self._correct([self.THIRD])
+    def test_palette_prevents_a_new_third_color_collision(self) -> None:
+        result = self._correct([self.NEW_COLLISION_THIRD])
         self.assertTrue(result["success"])
         self.assertTrue(result["search"]["reconfusion_checked"])
+        self.assertEqual(
+            result["search"]["reconfusion_policy"],
+            "prevent_new_or_worsened",
+        )
         self.assertEqual(result["search"]["palette_size"], 1)
         for corrected, original in (
             (result["corrected_A"], self.COLOR_A),
@@ -273,8 +287,24 @@ class ReconfusionTests(unittest.TestCase):
             if tuple(corrected) == original:
                 continue  # 움직이지 않은 색은 보정이 만든 문제가 아니다.
             self.assertGreaterEqual(
-                self._simulated_distance(corrected, self.THIRD), self.TARGET
+                self._simulated_distance(corrected, self.NEW_COLLISION_THIRD),
+                self.TARGET - 1e-9,
             )
+
+    def test_palette_does_not_worsen_an_existing_collision(self) -> None:
+        result = self._correct([self.EXISTING_CONFLICT_THIRD])
+        self.assertTrue(result["success"])
+        for corrected, original in (
+            (result["corrected_A"], self.COLOR_A),
+            (result["corrected_B"], self.COLOR_B),
+        ):
+            before = self._simulated_distance(
+                original, self.EXISTING_CONFLICT_THIRD
+            )
+            after = self._simulated_distance(
+                corrected, self.EXISTING_CONFLICT_THIRD
+            )
+            self.assertGreaterEqual(after + 1e-9, min(before, self.TARGET))
 
     def test_palette_ignores_the_pair_being_corrected(self) -> None:
         # A, B 자신이 팔레트에 있어도 "원본에서 멀어져라"로 해석되면 안 된다.

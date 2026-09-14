@@ -30,6 +30,7 @@ _PAIR_REFINEMENT_STARTS = 3
 _PAIR_REFINEMENT_MAX_PASSES = 20
 _RECONFUSION_CANDIDATE_CHUNK = 1024
 _RECONFUSION_PALETTE_CHUNK = 128
+_RECONFUSION_TOLERANCE = 1e-9
 
 
 def _srgb_array_to_linear(rgb_255: np.ndarray) -> np.ndarray:
@@ -255,15 +256,31 @@ def _prepare_palette(
 
 
 def _reconfusion_mask(
-    simulated_lab: np.ndarray, palette_lab: np.ndarray, target: float
+    simulated_lab: np.ndarray,
+    palette_lab: np.ndarray,
+    target: float,
+    original_simulated_lab: np.ndarray,
 ) -> np.ndarray:
-    """각 후보가 팔레트의 모든 색과 target 이상 떨어져 있는지 판정한다."""
+    """새 팔레트 충돌을 막고 기존 충돌은 더 악화시키지 않는다.
+
+    원래부터 ``target`` 미만이던 제3색까지 억지로 해결하면 현재 색쌍의
+    보정 비용에 다른 문제의 해결 비용이 섞인다. 따라서 제3색별 하한은
+    ``min(보정 전 거리, target)`` 이다. 원래 안전했던 관계에는 target을,
+    이미 가까웠던 관계에는 보정 전 거리를 적용한다.
+    """
     if palette_lab.shape[0] == 0:
         return np.ones(simulated_lab.shape[0], dtype=bool)
 
     # 정밀 탐색은 후보가 수만 개까지 늘 수 있다. 후보×팔레트 전체 거리
     # 행렬을 한 번에 만들면 실제 이미지 팔레트에서 메모리가 급증하므로
     # 양쪽 축을 나누어 후보별 최근접 거리만 유지한다.
+    original_distances = np.asarray(
+        delta_e_2000(
+            np.asarray(original_simulated_lab, dtype=float)[None, :],
+            palette_lab,
+        )
+    ).reshape(-1)
+    required_distances = np.minimum(original_distances, target)
     safe = np.ones(simulated_lab.shape[0], dtype=bool)
     for candidate_start in range(
         0,
@@ -273,7 +290,7 @@ def _reconfusion_mask(
         candidate_chunk = simulated_lab[
             candidate_start : candidate_start + _RECONFUSION_CANDIDATE_CHUNK
         ]
-        nearest = np.full(candidate_chunk.shape[0], np.inf, dtype=float)
+        chunk_safe = np.ones(candidate_chunk.shape[0], dtype=bool)
         for palette_start in range(
             0,
             palette_lab.shape[0],
@@ -288,10 +305,18 @@ def _reconfusion_mask(
                     palette_chunk[None, :, :],
                 )
             )
-            nearest = np.minimum(nearest, np.min(distances, axis=1))
+            required = required_distances[
+                palette_start : palette_start + palette_chunk.shape[0]
+            ]
+            chunk_safe &= np.all(
+                distances + _RECONFUSION_TOLERANCE >= required[None, :],
+                axis=1,
+            )
+            if not np.any(chunk_safe):
+                break
         safe[
             candidate_start : candidate_start + candidate_chunk.shape[0]
-        ] = nearest >= target
+        ] = chunk_safe
     return safe
 
 
@@ -321,6 +346,7 @@ def _refine_single_candidates(
     origin_a: np.ndarray,
     origin_b: np.ndarray,
     fixed_simulated_lab: np.ndarray,
+    original_moving_simulated_lab: np.ndarray,
     cvd_type: str,
     severity: float,
     target: float,
@@ -348,7 +374,12 @@ def _refine_single_candidates(
     origin = origin_a if moving_a else origin_b
     movements = np.linalg.norm(oklab_candidates - origin, axis=1)
     simulated_lab = _simulate_array_to_lab(rgb_candidates, cvd_type, severity)
-    safe = _reconfusion_mask(simulated_lab, palette_lab, target)
+    safe = _reconfusion_mask(
+        simulated_lab,
+        palette_lab,
+        target,
+        original_moving_simulated_lab,
+    )
     distances = np.asarray(delta_e_2000(simulated_lab, fixed_simulated_lab))
     feasible = np.flatnonzero(
         (movements > _EPSILON) & safe & (distances >= target)
@@ -392,6 +423,8 @@ def _search_pair_pool(
     *,
     origin_a: np.ndarray,
     origin_b: np.ndarray,
+    original_simulated_lab_a: np.ndarray,
+    original_simulated_lab_b: np.ndarray,
     cvd_type: str,
     severity: float,
     target: float,
@@ -405,8 +438,12 @@ def _search_pair_pool(
     movement_b = np.linalg.norm(oklab_b - origin_b, axis=1)
     simulated_lab_a = _simulate_array_to_lab(rgb_a, cvd_type, severity)
     simulated_lab_b = _simulate_array_to_lab(rgb_b, cvd_type, severity)
-    safe_a = _reconfusion_mask(simulated_lab_a, palette_lab, target)
-    safe_b = _reconfusion_mask(simulated_lab_b, palette_lab, target)
+    safe_a = _reconfusion_mask(
+        simulated_lab_a, palette_lab, target, original_simulated_lab_a
+    )
+    safe_b = _reconfusion_mask(
+        simulated_lab_b, palette_lab, target, original_simulated_lab_b
+    )
     moving_a = np.flatnonzero((movement_a > _EPSILON) & safe_a)
     moving_b = np.flatnonzero((movement_b > _EPSILON) & safe_b)
     if not moving_a.size or not moving_b.size:
@@ -458,6 +495,8 @@ def _refine_pair_candidates(
     *,
     origin_a: np.ndarray,
     origin_b: np.ndarray,
+    original_simulated_lab_a: np.ndarray,
+    original_simulated_lab_b: np.ndarray,
     cvd_type: str,
     severity: float,
     target: float,
@@ -502,6 +541,8 @@ def _refine_pair_candidates(
         current,
         origin_a=origin_a,
         origin_b=origin_b,
+        original_simulated_lab_a=original_simulated_lab_a,
+        original_simulated_lab_b=original_simulated_lab_b,
         cvd_type=cvd_type,
         severity=severity,
         target=target,
@@ -522,6 +563,8 @@ def _refine_pair_candidates(
             current,
             origin_a=origin_a,
             origin_b=origin_b,
+            original_simulated_lab_a=original_simulated_lab_a,
+            original_simulated_lab_b=original_simulated_lab_b,
             cvd_type=cvd_type,
             severity=severity,
             target=target,
@@ -553,9 +596,9 @@ def find_minimum_correction(
     두 색의 OKLab 이동 거리 합을 사용한다.
 
     ``palette``에 주변 색들을 넘기면 재혼동(re-confusion) 제약이 함께
-    적용된다. 즉 보정된 색이 팔레트의 다른 색과 시뮬레이션 후
-    ``target_threshold`` 미만으로 가까워지는 후보는 탐색 단계에서
-    제외된다. 이 제약은 :func:`~confusion.is_confusing`으로는 대체할 수
+    적용된다. 원래 target 이상이던 제3색 관계는 target 미만으로 만들지
+    않고, 원래부터 target 미만이던 관계는 보정 전보다 더 가깝게 만들지
+    않는다. 이 제약은 :func:`~confusion.is_confusing`으로는 대체할 수
     없다. 그 함수는 "원본에서는 달랐는가"를 함께 묻기 때문에, 보정이
     만들어낸 새 충돌은 색각이상 탓이 아니라는 이유로 통과시킨다.
     """
@@ -646,8 +689,12 @@ def find_minimum_correction(
         if palette_rgb.shape[0]
         else np.empty((0, 3), dtype=float)
     )
-    safe_a = _reconfusion_mask(simulated_lab_a, palette_lab, target)
-    safe_b = _reconfusion_mask(simulated_lab_b, palette_lab, target)
+    safe_a = _reconfusion_mask(
+        simulated_lab_a, palette_lab, target, fixed_lab_a
+    )
+    safe_b = _reconfusion_mask(
+        simulated_lab_b, palette_lab, target, fixed_lab_b
+    )
 
     alternatives: dict[str, dict[str, object] | None] = {
         "A_only": None,
@@ -782,6 +829,7 @@ def find_minimum_correction(
                 origin_a=origin_a,
                 origin_b=origin_b,
                 fixed_simulated_lab=fixed_lab_b,
+                original_moving_simulated_lab=fixed_lab_a,
                 cvd_type=cvd_type,
                 severity=severity,
                 target=target,
@@ -798,6 +846,7 @@ def find_minimum_correction(
                 origin_a=origin_a,
                 origin_b=origin_b,
                 fixed_simulated_lab=fixed_lab_a,
+                original_moving_simulated_lab=fixed_lab_b,
                 cvd_type=cvd_type,
                 severity=severity,
                 target=target,
@@ -820,6 +869,8 @@ def find_minimum_correction(
             refinement_seeds["both"],
             origin_a=origin_a,
             origin_b=origin_b,
+            original_simulated_lab_a=fixed_lab_a,
+            original_simulated_lab_b=fixed_lab_b,
             cvd_type=cvd_type,
             severity=severity,
             target=target,
@@ -846,6 +897,7 @@ def find_minimum_correction(
         "candidate_count_B": int(rgb_b.shape[0]),
         "palette_size": int(palette_rgb.shape[0]),
         "reconfusion_checked": bool(palette_rgb.shape[0]),
+        "reconfusion_policy": "prevent_new_or_worsened",
         "safe_candidate_count_A": int(np.count_nonzero(safe_a)),
         "safe_candidate_count_B": int(np.count_nonzero(safe_b)),
         "single_refinement_radius": _SINGLE_RGB_REFINEMENT_RADIUS,

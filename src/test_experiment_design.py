@@ -53,6 +53,21 @@ class SzafirLineModelTests(unittest.TestCase):
         self.assertGreater(thin, thick)
         self.assertLess(szafir_relative_scale((0, 1, 1), 0.5, 0.35, 0.05), 1)
 
+    def test_relative_scale_is_independent_of_source_probability_coordinate(self) -> None:
+        # Eq. 14--16에서 축별 ND가 모두 p에 비례하므로 동일 방향·두께의
+        # 비율에서는 p가 정확히 소거된다. p를 사후 선택해 결과를 바꾸지 못하게
+        # 이 성질을 회귀 테스트로 고정한다.
+        expected = szafir_relative_scale((0, 1, 1), 0.5, 0.08, 0.18)
+        for probability in (0.1, 0.25, 0.75, 0.9):
+            with self.subTest(probability=probability):
+                self.assertAlmostEqual(
+                    szafir_relative_scale(
+                        (0, 1, 1), probability, 0.08, 0.18
+                    ),
+                    expected,
+                    places=12,
+                )
+
     def test_source_range_is_enforced_unless_explicit(self) -> None:
         with self.assertRaises(ValueError):
             szafir_line_axis_nd("b", 0.5, 0.40)

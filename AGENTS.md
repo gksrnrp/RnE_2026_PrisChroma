@@ -10,13 +10,17 @@
 
 ## 프로젝트
 
-적록색약자를 위한 개인화 선택적 AI 색보정 (R&E 2026).
+고정 표시 조건에서 적록색각이상 사례 참가자의 선 굵기별 C80 예측과
+제약 기반 쌍 단위 최소 색이동 보정 (R&E 2026).
 
-혼동 상대가 있는 색만 골라서, 구별 가능한 **가장 가까운 색**으로 최소 이동시킨다.
-보색 치환이 아니다. 화면 전체를 바꾸는 것도 아니다.
+연구용 보정은 측정한 Lab 중점·방향의 대칭 색쌍만 대상으로, 예측 C80 제약을
+만족하는 유한 8-bit 동일경로 후보 중 OKLab 이동 합 최소를 찾는다. 임의 RGB의
+A만/B만/둘 다 탐색은 별도 공학 baseline이며 인간 검증 없이 행동 효과로
+해석하지 않는다. 보색 치환이나 화면 전체 변환이 아니다.
 
-연구 합의사항 전체는 [docs/project-context.txt](docs/project-context.txt)에 있다.
-**이 문서의 연구 방향을 임의로 바꾸지 말 것.** 불확실한 부분은 구현 전에
+현재 연구의 최상위 기준은 [docs/experiment-protocol.md](docs/experiment-protocol.md)다.
+`project-context.txt`와 `research-plan.txt`는 이전 AI 확장안의 기록이며 현재
+가설이나 실험 절차의 근거로 사용하지 않는다. 불확실한 부분은 구현 전에
 TODO 또는 실험 변수로 남긴다.
 
 ---
@@ -26,8 +30,9 @@ TODO 또는 실험 변수로 남긴다.
 | 경로 | 내용 |
 |---|---|
 | `src/` | baseline 구현, 단위 테스트, 탐색 벤치마크 |
-| `docs/project-context.txt` | 연구 합의사항 (최상위 기준) |
-| `docs/research-plan.txt` | 담당 파트 계획과 알고리즘 설명 |
+| `docs/experiment-protocol.md` | 현재 연구 질문·분석·중단 규칙 (최상위 기준) |
+| `docs/project-context.txt` | 이전 AI 확장안 기록 (비활성) |
+| `docs/research-plan.txt` | 이전 담당 계획 기록 (비활성) |
 | `docs/code-review.md` | **무엇을 왜 고쳤는지, 남은 한계** |
 | `results/` | 실험 결과 JSON, 측정 산출물 |
 | `docs/handoff-jeongingyo.md` | ②단계 인수인계와 팀원 요청 사항 |
@@ -43,7 +48,7 @@ TODO 또는 실험 변수로 남긴다.
 
 ```bash
 cd src
-python -m unittest -q                 # baseline 41개 + ②단계 48개, 약 2분
+python -m unittest -q                 # 현재 전체 단위·통합 회귀검사
 python two_color_demo.py --help
 python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 ```
@@ -58,18 +63,28 @@ python benchmark_search.py --pairs 30 --output ../results/search_benchmark.json
 수렴 같은 주장을 색쌍 하나로 확인하고 "일반적으로 그렇다"고 쓰면 안 된다.
 
 `src/benchmark_search.py`로 여러 색쌍에서 측정하고, 그 수치를 문서에 적는다.
-결과 JSON은 `results/`에 보관한다 (seed와 계산식이 함께 저장된다).
+현재 코드·환경·commit에 결합된 결과 JSON을 `results/`에 보관해야만 근거로
+사용한다(seed, 계산식, 실행환경과 구현 provenance 포함). 예전 수치만 남아
+있거나 입력·구현 hash가 없으면 역사적 개발 메모일 뿐 현재 성능 근거가 아니다.
 
 ### 2. 근거보다 강한 문장을 쓰지 않는다
 
 독스트링과 README는 논문으로 옮겨간다. "step의 영향은 작다" 같은 문장은
 반증 가능한 주장이므로, 측정 범위를 함께 적는다.
 
-### 3. 탐색 결과는 전역 최적해가 아니다
+### 3. 두 보정 경로의 최소 범위를 구분한다
 
-radial grid + 지역 RGB cube + multi-start + 반복 정밀화 방식이다. 고정
-30쌍에서는 step 비단조가 관찰되지 않았지만 전역 최적해를 보장하지 않는다.
-"최소 색이동"으로 보고할 때는 이 점을 밝힌다.
+radial grid + 지역 RGB cube + multi-start + 반복 정밀화 방식이다. 과거 고정
+30쌍 개발 실행에서는 step 비단조가 관찰되지 않았지만, 그 산출물은 현재
+구현 provenance에 결합되지 않아 현재 성능 근거로 재사용하지 않는다. 새
+benchmark를 현재 commit에서 재실행해도 전역 최적해를 보장하지 않는다.
+임의 RGB baseline은 반드시 `쌍 단위 근사해`로 쓴다.
+
+연구용 동일경로 보정은 명시한 scale grid를 8-bit로 양자화한 유일 후보를 모두
+열거하므로 **그 유한 후보 집합 안에서는** 정확한 최소다. 연속 색공간·다른
+Lab 방향·전체 팔레트의 전역 최소라고 쓰지 않는다.
+자극 생성용 목표 허용오차를 보정 후보의 초과량 상한으로 재사용하지 않는다.
+표시 RGB에서 다시 계산한 `Machado 후 ΔE00 >= C80` 후보 전부를 비교한다.
 
 ### 4. 재혼동 제약의 의미를 좁혀서 이해한다
 
@@ -81,9 +96,10 @@ radial grid + 지역 RGB cube + multi-start + 반복 정밀화 방식이다. 고
 `tau_high` / `tau_low` / `tau_target`은 아직 실험 변수다. 사용자 데이터로
 조정해야 하며 코드에 임의의 기본값을 넣지 않는다.
 
-### 6. AI 단계는 baseline 완성 후
+### 6. AI는 이번 연구 범위가 아니다
 
-규칙 기반 baseline이 검증되기 전에 U-Net 등으로 넘어가지 않는다.
+이번 연구는 규칙 기반 사례연구로 끝낸다. U-Net 등은 참가자와 데이터가
+충분해진 뒤의 별도 후속 연구이며 현재 결과에 포함하지 않는다.
 
 ---
 
@@ -101,10 +117,10 @@ Codex와 Claude Code를 번갈아 쓰는 경우, **세션 자체는 연결되지
 
 ---
 
-## ②단계(탐지·측정) 규칙 — 정인교
+## 보조 이미지 탐지·측정 규칙 — 정인교
 
-파이프라인은 ① 개인화(한정훈) → ② 탐지·측정(정인교) → ③ 보정(이창민)
-→ ④ 평가(공동) 순이다. ②단계 코드는 아래 파일들이고, 이창민 소유
+현재 주 연구는 통제 선 4AFC이며 실제 이미지 탐지는 선택적 응용 사례다.
+필수 파이프라인으로 섞지 않는다. 보조 탐지 코드는 아래 파일들이고, 이창민 소유
 파일(`machado.py`, `baseline.py`, `two_color_demo.py`)은 읽거나 호출만
 한다.
 
@@ -118,17 +134,16 @@ Codex와 Claude Code를 번갈아 쓰는 경우, **세션 자체는 연결되지
 원본 수치만 기록하고 임계값 결정은 ①단계 실험 결과에 맡긴다.
 `test_measure_pairs.py`가 이 규칙을 테스트로 고정하고 있다.
 
-측정된 개인 역치 **0.62**는 큰 색면 두 개를 맞붙여 본 최적 조건의
-값이다. 노선도의 얇은 선이나 떨어진 영역에 그대로 쓸 수 없다. 지금은
-개인의 상대적 민감도로만 쓰고, 실제 이미지용 기준은 2차 실험으로 정한다.
-
-`apply_baseline.DEVELOPMENT_THRESHOLDS`는 파이프라인 연결 확인용
-설정값이지 연구 결과가 아니다.
+큰 색면 세션에서 관측된 0.62는 특정 참가자·세션·과제의 값이다. 선 C80의
+기본값이나 자동 환산 기준으로 사용하지 않는다. 보정 함수에는 임계값을
+출처와 함께 명시적으로 넘긴다.
 
 ### 파라미터 기본값과 근거
 
 `n_segments=800`, `compactness=3`, `merge_thresh=1.0`, `d_max=200`.
-근거는 `results/sweep_summary.md`에 있다. 요약하면,
+아래 값은 `results/sweep_summary.md`에 남은 **과거 합성 개발 실행**의 요약이다.
+현재 코드·환경에 결합된 재실행 전에는 현재 파이프라인 성능 근거로 사용하지
+않고, 선택적 이미지 응용의 후보 설정을 정하는 역사적 참고로만 사용한다.
 
 - 8 px 선은 n_segments 300부터, 6 px은 500~800부터 잡힌다.
   **3 px 이하는 3000까지 올려도 검출률 0%다.** 안티앨리어싱으로 대표색이
@@ -142,13 +157,13 @@ Codex와 Claude Code를 번갈아 쓰는 경우, **세션 자체는 연결되지
 
 | 파일 | 커밋 | 내용 |
 |---|---|---|
-| `results/conditions.md` | O | 한정훈용 2차 실험 자극 조건 |
+| `results/conditions.md` | O | 폐기된 0.62 환산안의 역사 기록(현재 입력 금지) |
 | `results/sweep_summary.md` | O | 파라미터 민감도 요약 |
 | `results/failure_summary.md` | O | 분할 실패 유형별 건수 |
-| `results/report_tables.md` | O | 보고서용 표 모음 |
+| `results/report_tables.md` | X | 재생성 가능한 보고서용 표(로컬 보관) |
 | `results/*_sweep.csv` | O | 민감도 원본 수치 |
-| `results/figures/` | O | 보고서 그림 |
+| `results/figures/` | X | 재생성 가능한 보고서 그림(로컬 보관) |
 | `results/pairs.csv`, `regions.csv` | X | 용량 |
 | `results/measurements_*.json` | X | 재생성 가능 |
 | `data/synthetic/` | X | `generate_synthetic.py`로 재생성 |
-| `data/real/` | O | 재생성 불가. 출처는 `sources.csv` |
+| `data/real/` | 조건부 | 원본은 출처·라이선스·hash가 완결된 경우만 공유 |

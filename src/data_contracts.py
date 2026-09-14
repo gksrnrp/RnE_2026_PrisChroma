@@ -13,11 +13,14 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from color_spaces import srgb_to_lab
+from distance import delta_e_2000
 from experiment_design import (
     SZAFIR_LINE_MAX_VISUAL_ANGLE_DEG,
     SZAFIR_LINE_MIN_VISUAL_ANGLE_DEG,
     pixels_to_visual_angle_deg,
 )
+from machado import simulate_color_float
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -173,9 +176,69 @@ def _validate_experiment_config(payload: dict) -> None:
             staircase.get("fixed_lapse") is None,
             "lapse_policy가 fixed가 아니면 fixed_lapse는 null이어야 합니다.",
         )
+    observer = payload["observer_profile"]
+    _assert(
+        staircase["lapse_policy"] == "fixed"
+        and staircase["fixed_lapse"] == observer["fixed_lapse"],
+        "한 참가자용 observer_profile.fixed_lapse와 staircase.fixed_lapse가 "
+        "같은 고정값이어야 합니다.",
+    )
 
 
 def _validate_trial(payload: dict) -> None:
+    displayed_lab_a = srgb_to_lab(payload["displayed_rgb_a"])
+    displayed_lab_b = srgb_to_lab(payload["displayed_rgb_b"])
+    simulated_rgb_a = simulate_color_float(
+        payload["displayed_rgb_a"], payload["cvd_type"], payload["machado_severity"]
+    )
+    simulated_rgb_b = simulate_color_float(
+        payload["displayed_rgb_b"], payload["cvd_type"], payload["machado_severity"]
+    )
+    simulated_lab_a = srgb_to_lab(simulated_rgb_a)
+    simulated_lab_b = srgb_to_lab(simulated_rgb_b)
+
+    for field, stored, calculated in (
+        ("displayed_lab_a", payload["displayed_lab_a"], displayed_lab_a),
+        ("displayed_lab_b", payload["displayed_lab_b"], displayed_lab_b),
+        ("simulated_rgb_a", payload["simulated_rgb_a"], simulated_rgb_a),
+        ("simulated_rgb_b", payload["simulated_rgb_b"], simulated_rgb_b),
+        ("simulated_lab_a", payload["simulated_lab_a"], simulated_lab_a),
+        ("simulated_lab_b", payload["simulated_lab_b"], simulated_lab_b),
+    ):
+        _assert(
+            all(_close(float(a), float(b)) for a, b in zip(stored, calculated)),
+            f"{field}가 표시 RGB와 type/severity로 재계산한 값과 다릅니다.",
+        )
+
+    original_distance = float(delta_e_2000(displayed_lab_a, displayed_lab_b))
+    simulated_distance = float(delta_e_2000(simulated_lab_a, simulated_lab_b))
+    _assert(
+        _close(payload["delta_e00_original"], original_distance),
+        "delta_e00_original이 표시 RGB에서 재계산한 값과 다릅니다.",
+    )
+    _assert(
+        _close(payload["delta_e00_simulated"], simulated_distance),
+        "delta_e00_simulated가 Machado 결과에서 재계산한 값과 다릅니다.",
+    )
+
+    positions = payload["position_colors"]
+    odd = payload["odd_color"]
+    _assert(
+        positions.count(odd) == 1 and positions.count("b" if odd == "a" else "a") == 3,
+        "position_colors에는 odd_color가 정확히 한 번, 기준색이 세 번 있어야 합니다.",
+    )
+    _assert(
+        positions[payload["correct_position"] - 1] == odd,
+        "correct_position이 position_colors의 odd_color 위치와 다릅니다.",
+    )
+    expected_rgbs = [
+        payload["displayed_rgb_a"] if color == "a" else payload["displayed_rgb_b"]
+        for color in positions
+    ]
+    _assert(
+        payload["position_rgbs"] == expected_rgbs,
+        "position_rgbs가 position_colors와 표시 RGB로 재구성한 값과 다릅니다.",
+    )
     if payload["phase"] == "validation":
         _assert(
             payload["staircase_id"] is not None,
@@ -184,8 +247,9 @@ def _validate_trial(payload: dict) -> None:
     if payload["trial_status"] == "completed":
         _assert(
             payload["response_position"] is not None
-            and payload["is_correct"] is not None,
-            "완료 시행에는 response_position과 is_correct가 필요합니다.",
+            and payload["is_correct"] is not None
+            and payload["response_time_ms"] is not None,
+            "완료 시행에는 response_position, is_correct, response_time_ms가 필요합니다.",
         )
         _assert(
             payload["is_correct"]
@@ -194,8 +258,10 @@ def _validate_trial(payload: dict) -> None:
         )
     else:
         _assert(
-            payload["response_position"] is None and payload["is_correct"] is None,
-            "중단 시행의 응답과 정오 값은 null이어야 합니다.",
+            payload["response_position"] is None
+            and payload["is_correct"] is None
+            and payload["response_time_ms"] is None,
+            "중단 시행의 응답·정오·반응시간은 null이어야 합니다.",
         )
 
 
@@ -257,7 +323,23 @@ def _validate_participant_thresholds(payload: dict) -> None:
                 <= prediction["ci_high"],
                 f"{participant_id} {key}: C80이 신뢰구간 안에 없습니다.",
             )
+            _assert(
+                prediction["fit_converged"],
+                f"{participant_id} {key}: 수렴하지 않은 적합을 예측값으로 기록했습니다.",
+            )
+            _assert(
+                prediction["bootstrap_convergence_rate"] >= 0.90,
+                f"{participant_id} {key}: bootstrap 수렴률이 0.90 미만입니다.",
+            )
         validation = participant["validation"]
+        for index, (value, interval) in enumerate(
+            zip(validation["staircase_c80"], validation["staircase_ci"]),
+            start=1,
+        ):
+            _assert(
+                interval["ci_low"] <= value <= interval["ci_high"],
+                f"{participant_id}: 계단 {index} C80이 해당 신뢰구간 밖입니다.",
+            )
         if validation["stable"]:
             _assert(
                 validation["coefficient_of_variation"] <= 0.20,
@@ -267,10 +349,20 @@ def _validate_participant_thresholds(payload: dict) -> None:
                 validation["pooled_c80"] is not None,
                 f"{participant_id}: 안정적 검증에는 pooled_c80이 필요합니다.",
             )
+            _assert(
+                validation["pooled_ci_low"] is not None
+                and validation["pooled_ci_high"] is not None
+                and validation["pooled_ci_low"]
+                <= validation["pooled_c80"]
+                <= validation["pooled_ci_high"],
+                f"{participant_id}: pooled C80과 신뢰구간이 필요하며 서로 맞아야 합니다.",
+            )
         else:
             _assert(
-                validation["pooled_c80"] is None,
-                f"{participant_id}: 불안정 검증은 pooled_c80을 만들면 안 됩니다.",
+                validation["pooled_c80"] is None
+                and validation["pooled_ci_low"] is None
+                and validation["pooled_ci_high"] is None,
+                f"{participant_id}: 불안정 검증은 pooled_c80/CI를 만들면 안 됩니다.",
             )
 
 
@@ -307,6 +399,42 @@ def _validate_correction_results(payload: dict) -> None:
         seen.add(pair_id)
         counts[row["status"]] += 1
         target_met_count += int(row["target_met"])
+        calculated_original = float(
+            delta_e_2000(
+                srgb_to_lab(row["input_rgb_a"]),
+                srgb_to_lab(row["input_rgb_b"]),
+            )
+        )
+        before_sim_a = simulate_color_float(
+            row["input_rgb_a"], threshold["cvd_type"], threshold["severity"]
+        )
+        before_sim_b = simulate_color_float(
+            row["input_rgb_b"], threshold["cvd_type"], threshold["severity"]
+        )
+        after_sim_a = simulate_color_float(
+            row["corrected_rgb_a"], threshold["cvd_type"], threshold["severity"]
+        )
+        after_sim_b = simulate_color_float(
+            row["corrected_rgb_b"], threshold["cvd_type"], threshold["severity"]
+        )
+        calculated_before = float(
+            delta_e_2000(srgb_to_lab(before_sim_a), srgb_to_lab(before_sim_b))
+        )
+        calculated_after = float(
+            delta_e_2000(srgb_to_lab(after_sim_a), srgb_to_lab(after_sim_b))
+        )
+        _assert(
+            _close(row["original_delta_e00"], calculated_original),
+            f"{pair_id}: original_delta_e00이 입력 RGB 재계산값과 다릅니다.",
+        )
+        _assert(
+            _close(row["simulated_delta_e00_before"], calculated_before),
+            f"{pair_id}: 보정 전 시뮬레이션 색차가 재계산값과 다릅니다.",
+        )
+        _assert(
+            _close(row["simulated_delta_e00_after"], calculated_after),
+            f"{pair_id}: 보정 후 시뮬레이션 색차가 재계산값과 다릅니다.",
+        )
         _assert(
             row["target_met"]
             == (row["simulated_delta_e00_after"] + 1e-9 >= expected_target),
@@ -411,6 +539,39 @@ def validate_jsonl(path: str | Path) -> list[dict]:
         except ContractError as error:
             raise ContractError(f"{file_path}:{line_number}: {error}") from error
         records.append(record)
+
+    # trial_id는 동결 schedule 안의 전역 순번이다. session_id를 바꿔 같은
+    # 예정 시행을 다시 수행해도 새 시행으로 인정하지 않는다.
+    seen_trials: set[tuple[str, str, int]] = set()
+    session_settings: dict[tuple[str, str], tuple[object, ...]] = {}
+    for record in records:
+        trial_key = (
+            record["participant_id"],
+            record["config_sha256"],
+            record["trial_id"],
+        )
+        _assert(trial_key not in seen_trials, f"JSONL 시행 ID가 중복됩니다: {trial_key}")
+        seen_trials.add(trial_key)
+        session_key = (record["participant_id"], record["session_id"])
+        settings = (
+            record["config_version"],
+            record["config_sha256"],
+            record["git_commit"],
+            record["stimulus_family_id"],
+            record["cvd_type"],
+            record["machado_severity"],
+            record["severity_source"],
+            record["severity_session_id"],
+            record["fixed_lapse"],
+            record["lapse_source"],
+            record["lapse_session_id"],
+            record["renderer_id"],
+        )
+        previous = session_settings.setdefault(session_key, settings)
+        _assert(
+            previous == settings,
+            f"{session_key}: 한 세션 안에서 설정·자극군·severity가 바뀌었습니다.",
+        )
     return records
 
 

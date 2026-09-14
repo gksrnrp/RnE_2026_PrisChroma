@@ -2,6 +2,9 @@
   "schema_version": "0.1-draft",
   "data_origin": "synthetic",
   "coordinate": "post_machado_delta_e00",
+  "formula_version": "direct-c80-4afc-v1",
+  "config_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "git_commit": "0000000000000000000000000000000000000000",
   "participants": [
     {
       "participant_id": "P_SYNTHETIC_01",
@@ -17,16 +20,28 @@
           "c80_sim": 2.8,
           "ci_low": 2.3,
           "ci_high": 3.4,
-          "value_type": "predicted"
+          "value_type": "predicted",
+          "w": 0.3,
+          "lapse": 0.02,
+          "fit_converged": true,
+          "bootstrap_replicates": 40,
+          "bootstrap_convergence_rate": 1.0
         }
       ],
       "validation": {
         "stroke_width_px": 3,
         "stroke_width_deg": 0.07908009979498572,
         "staircase_c80": [2.7, 2.9, 2.8],
+        "staircase_ci": [
+          {"ci_low": 2.3, "ci_high": 3.1},
+          {"ci_low": 2.5, "ci_high": 3.3},
+          {"ci_low": 2.4, "ci_high": 3.2}
+        ],
         "coefficient_of_variation": 0.0357142857142857,
         "stable": true,
-        "pooled_c80": 2.8
+        "pooled_c80": 2.8,
+        "pooled_ci_low": 2.5,
+        "pooled_ci_high": 3.1
       }
     }
   ]

@@ -1,3 +1,9 @@
+# LEGACY — 정인교의 이전 이미지 탐지 세션 기록
+
+> 이 문서는 2026-08의 이전 AI·이미지 파이프라인 작업 기록이다. 현재 연구
+> 질문, 사람 실험, 0.62 환산 또는 담당 지시로 사용하지 않는다. 현재 기준은
+> `docs/experiment-protocol.md`와 저장소 루트 `AGENTS.md`다.
+
 # Prischroma — 적록색약자를 위한 개인화 선택적 색보정
 
 ## 프로젝트 개요
@@ -152,8 +158,8 @@ python -c "from export_tables import export_all; export_all('../results/measurem
 
 ## 코드 작성 규칙
 
-- Python 3.12, 들여쓰기 공백 4칸, 한 줄 79자 이내
+- Python 3.13.15, 들여쓰기 공백 4칸, 한 줄 79자 이내
 - 파일 인코딩 UTF-8, 줄바꿈 LF
 - 한글 주석 사용. 왜 그렇게 했는지를 적고, 무엇을 하는지는 코드로 드러낸다
 - 새 의존성을 추가하면 `requirements.txt`에도 반영한다
-- 이창민 파일을 건드리는 변경은 먼저 `python -m unittest -q`로 41개 통과를 확인한다
+- 이창민 파일을 건드리는 변경은 먼저 `python -m unittest -q` 전체 통과를 확인한다

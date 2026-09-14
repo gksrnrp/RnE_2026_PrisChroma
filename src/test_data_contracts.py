@@ -49,6 +49,55 @@ class DataContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "정답 위치"):
             validate_payload("trial", trial)
 
+    def test_trial_recalculates_simulated_distance(self) -> None:
+        trial = json.loads(
+            EXAMPLE_PATHS["trial"].read_text(encoding="utf-8").splitlines()[0]
+        )
+        trial["delta_e00_simulated"] += 1.0
+        with self.assertRaisesRegex(ContractError, "재계산"):
+            validate_payload("trial", trial)
+
+    def test_trial_correct_position_must_point_to_odd_color(self) -> None:
+        trial = json.loads(
+            EXAMPLE_PATHS["trial"].read_text(encoding="utf-8").splitlines()[0]
+        )
+        trial["position_colors"] = ["b", "a", "a", "a"]
+        with self.assertRaisesRegex(ContractError, "correct_position"):
+            validate_payload("trial", trial)
+
+    def test_jsonl_rejects_duplicate_trial_id(self) -> None:
+        line = EXAMPLE_PATHS["trial"].read_text(encoding="utf-8").strip()
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "duplicate.jsonl"
+            path.write_text(line + "\n" + line + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ContractError, "중복"):
+                validate_jsonl(path)
+
+    def test_jsonl_rejects_same_scheduled_trial_after_session_rename(self) -> None:
+        first = json.loads(EXAMPLE_PATHS["trial"].read_text(encoding="utf-8"))
+        second = copy.deepcopy(first)
+        second["session_id"] = "S02"
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "renamed-session.jsonl"
+            path.write_text(
+                json.dumps(first) + "\n" + json.dumps(second) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ContractError, "중복"):
+                validate_jsonl(path)
+
+    def test_trial_position_rgbs_must_match_position_identities(self) -> None:
+        trial = json.loads(EXAMPLE_PATHS["trial"].read_text(encoding="utf-8"))
+        trial["position_rgbs"][0] = trial["displayed_rgb_b"]
+        with self.assertRaisesRegex(ContractError, "position_rgbs"):
+            validate_payload("trial", trial)
+
     def test_config_recalculates_visual_angle(self) -> None:
         config = _example("experiment_config")
         config["calibration"]["widths"][0]["width_deg"] = 99.0
@@ -109,7 +158,17 @@ class DataContractTests(unittest.TestCase):
         thresholds = _example("participant_thresholds")
         validation = thresholds["participants"][0]["validation"]
         validation["stable"] = False
+        validation["pooled_ci_low"] = None
+        validation["pooled_ci_high"] = None
         with self.assertRaisesRegex(ContractError, "pooled_c80"):
+            validate_payload("participant_thresholds", thresholds)
+
+    def test_staircase_c80_must_be_inside_its_interval(self) -> None:
+        thresholds = _example("participant_thresholds")
+        thresholds["participants"][0]["validation"]["staircase_ci"][0][
+            "ci_low"
+        ] = 2.8
+        with self.assertRaisesRegex(ContractError, "계단 1"):
             validate_payload("participant_thresholds", thresholds)
 
     def test_correction_summary_must_match_rows(self) -> None:
@@ -122,6 +181,12 @@ class DataContractTests(unittest.TestCase):
         results = _example("correction_results")
         results["threshold"]["target_policy"] = "ci_high"
         with self.assertRaisesRegex(ContractError, "selected_target"):
+            validate_payload("correction_results", results)
+
+    def test_correction_distances_are_recalculated_from_rgb(self) -> None:
+        results = _example("correction_results")
+        results["results"][0]["simulated_delta_e00_before"] += 1.0
+        with self.assertRaisesRegex(ContractError, "재계산"):
             validate_payload("correction_results", results)
 
     def test_unchanged_result_cannot_claim_palette_search(self) -> None:

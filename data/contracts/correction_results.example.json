@@ -3,6 +3,7 @@
   "data_origin": "synthetic",
   "generated_by": "run_personal_correction.py",
   "optimization_scope": "approximate_pairwise_not_global",
+  "interpretation_scope": "model_constraint_only_not_human_readability",
   "inputs": {
     "validation_pairs_schema_version": "0.1-draft",
     "participant_thresholds_schema_version": "0.1-draft"
@@ -41,7 +42,7 @@
     {
       "pair_id": "PAIR_EXAMPLE_01",
       "source_case": "CASE_EXAMPLE_01",
-      "selection_split": "held_out_from_psychometric_fit",
+      "selection_split": "synthetic_pipeline_check",
       "status": "unchanged",
       "reason": "이 임계값 설정에서는 색각이상 때문에 생긴 혼동 쌍이 아닙니다.",
       "input_rgb_a": [
@@ -85,7 +86,7 @@
     {
       "pair_id": "PAIR_EXAMPLE_02",
       "source_case": "CASE_EXAMPLE_02",
-      "selection_split": "held_out_from_psychometric_fit",
+      "selection_split": "synthetic_pipeline_check",
       "status": "corrected",
       "reason": "radial grid와 multi-start RGB 정밀 탐색에서 총 OKLab 이동량이 가장 작은 결과입니다.",
       "input_rgb_a": [

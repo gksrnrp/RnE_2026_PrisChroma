@@ -1,6 +1,7 @@
 {
   "schema_version": "0.1-draft",
   "data_origin": "synthetic",
+  "interpretation_scope": "software_pipeline_only_not_behavioral_validation",
   "pairs": [
     {
       "pair_id": "PAIR_EXAMPLE_01",
@@ -8,7 +9,7 @@
       "rgb_b": [60, 160, 60],
       "palette": [[20, 175, 100]],
       "source_case": "CASE_EXAMPLE_01",
-      "selection_split": "held_out_from_psychometric_fit",
+      "selection_split": "synthetic_pipeline_check",
       "notes": "형식 검증용 예시이며 실제 독립 검증쌍이 아니다."
     },
     {
@@ -17,7 +18,7 @@
       "rgb_b": [160, 32, 224],
       "palette": [],
       "source_case": "CASE_EXAMPLE_02",
-      "selection_split": "held_out_from_psychometric_fit",
+      "selection_split": "synthetic_pipeline_check",
       "notes": "synthetic C80 연결 시 보정 경로를 검사하기 위한 가짜 색쌍이다."
     }
   ]

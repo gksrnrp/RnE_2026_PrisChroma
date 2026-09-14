@@ -22,11 +22,6 @@ from config import ConfusionThresholds
 
 VALID_CVD_TYPES = ("protan", "deutan")
 
-# 1차 실험에서 큰 색면을 맞붙여 잰 값. 조건별 역치를 이 값으로 나눠
-# 환산 비율을 만든다.
-REFERENCE_THRESHOLD = 0.62
-
-
 class InputError(ValueError):
     """입력 파일 형식이 맞지 않을 때 낸다. 메시지에 고칠 곳을 적는다."""
 
@@ -125,14 +120,23 @@ def load_personal_params(
                 }
             )
 
+        reference_raw = entry.get("reference_threshold")
+        reference_threshold = (
+            None
+            if reference_raw is None
+            else _check_number(
+                reference_raw,
+                f"{label}: reference_threshold",
+                1e-12,
+                200.0,
+            )
+        )
         records.append(
             {
                 "participant_id": str(label),
                 "cvd_type": entry["cvd_type"],
                 "severity": severity,
-                "reference_threshold": float(
-                    entry.get("reference_threshold", REFERENCE_THRESHOLD)
-                ),
+                "reference_threshold": reference_threshold,
                 "threshold_conditions": checked,
                 "notes": entry.get("notes", ""),
             }
@@ -161,12 +165,22 @@ def measured_conditions(participant: dict) -> list[dict]:
     환산 비율 = (그 조건에서 잰 역치) / (맞붙여 잰 기준 역치).
     1보다 크면 그 조건에서는 색차가 더 벌어져야 구별된다는 뜻이다.
     """
-    reference = participant.get("reference_threshold") or REFERENCE_THRESHOLD
-    _require(reference > 0.0, "reference_threshold는 0보다 커야 합니다.")
+    completed = [
+        condition
+        for condition in participant["threshold_conditions"]
+        if condition.get("threshold") is not None
+    ]
+    if not completed:
+        return []
+    reference = participant.get("reference_threshold")
+    _require(
+        reference is not None and reference > 0.0,
+        "측정된 조건의 환산비를 계산하려면 해당 참가자·세션에서 잰 "
+        "reference_threshold를 명시해야 합니다. 0.62를 기본값으로 "
+        "대입하지 않습니다.",
+    )
     rows = []
-    for condition in participant["threshold_conditions"]:
-        if condition.get("threshold") is None:
-            continue
+    for condition in completed:
         rows.append(
             {
                 **condition,
@@ -255,7 +269,6 @@ def describe_inputs(
 
 __all__ = [
     "InputError",
-    "REFERENCE_THRESHOLD",
     "VALID_CVD_TYPES",
     "describe_inputs",
     "load_personal_params",

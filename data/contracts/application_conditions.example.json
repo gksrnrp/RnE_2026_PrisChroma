@@ -1,5 +1,6 @@
 {
   "schema_version": "0.1-draft",
+  "data_origin": "synthetic",
   "cases": [
     {
       "case_id": "CASE_EXAMPLE_01",

@@ -1,0 +1,125 @@
+{
+  "schema_version": "0.1-draft",
+  "data_origin": "synthetic",
+  "generated_by": "run_personal_correction.py",
+  "optimization_scope": "approximate_pairwise_not_global",
+  "interpretation_scope": "model_constraint_only_not_human_readability",
+  "inputs": {
+    "validation_pairs_schema_version": "0.1-draft",
+    "participant_thresholds_schema_version": "0.1-draft"
+  },
+  "search": {
+    "step": 0.02,
+    "max_shift": 0.3,
+    "direction_grid_radius": 2,
+    "pair_chunk_size": 64
+  },
+  "threshold": {
+    "participant_id": "P_SYNTHETIC_01",
+    "cvd_type": "deutan",
+    "severity": 0.7,
+    "severity_source": "SYNTHETIC_EXAMPLE_ONLY",
+    "confirmed": false,
+    "model": "D288",
+    "stroke_width_px": 3,
+    "stroke_width_deg": 0.07908009979498572,
+    "c80_sim": 2.8,
+    "ci_low": 2.3,
+    "ci_high": 3.4,
+    "value_type": "predicted",
+    "target_policy": "point",
+    "selected_target": 2.8,
+    "original_min": 10.0
+  },
+  "summary": {
+    "pair_count": 2,
+    "unchanged_count": 1,
+    "corrected_count": 1,
+    "search_failed_count": 0,
+    "target_met_count": 2
+  },
+  "results": [
+    {
+      "pair_id": "PAIR_EXAMPLE_01",
+      "source_case": "CASE_EXAMPLE_01",
+      "selection_split": "synthetic_pipeline_check",
+      "status": "unchanged",
+      "reason": "이 임계값 설정에서는 색각이상 때문에 생긴 혼동 쌍이 아닙니다.",
+      "input_rgb_a": [
+        220,
+        50,
+        50
+      ],
+      "input_rgb_b": [
+        60,
+        160,
+        60
+      ],
+      "corrected_rgb_a": [
+        220,
+        50,
+        50
+      ],
+      "corrected_rgb_b": [
+        60,
+        160,
+        60
+      ],
+      "palette": [
+        [
+          20,
+          175,
+          100
+        ]
+      ],
+      "original_delta_e00": 69.68056074552112,
+      "simulated_delta_e00_before": 13.86958417094678,
+      "simulated_delta_e00_after": 13.86958417094678,
+      "target_met": true,
+      "strategy": null,
+      "color_change_a": 0.0,
+      "color_change_b": 0.0,
+      "total_color_change": 0.0,
+      "in_srgb_gamut": true,
+      "palette_constraint_used": false
+    },
+    {
+      "pair_id": "PAIR_EXAMPLE_02",
+      "source_case": "CASE_EXAMPLE_02",
+      "selection_split": "synthetic_pipeline_check",
+      "status": "corrected",
+      "reason": "radial grid와 multi-start RGB 정밀 탐색에서 총 OKLab 이동량이 가장 작은 결과입니다.",
+      "input_rgb_a": [
+        32,
+        96,
+        224
+      ],
+      "input_rgb_b": [
+        160,
+        32,
+        224
+      ],
+      "corrected_rgb_a": [
+        32,
+        96,
+        224
+      ],
+      "corrected_rgb_b": [
+        162,
+        36,
+        222
+      ],
+      "palette": [],
+      "original_delta_e00": 21.427763401422784,
+      "simulated_delta_e00_before": 2.2626523228952236,
+      "simulated_delta_e00_after": 2.8042172597838846,
+      "target_met": true,
+      "strategy": "B_only",
+      "color_change_a": 0.0,
+      "color_change_b": 0.006671975013215325,
+      "total_color_change": 0.006671975013215325,
+      "in_srgb_gamut": true,
+      "palette_constraint_used": false
+    }
+  ]
+}

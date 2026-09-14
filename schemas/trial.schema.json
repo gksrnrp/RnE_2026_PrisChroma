@@ -8,54 +8,159 @@
     "schema_version",
     "data_origin",
     "config_version",
+    "config_sha256",
+    "git_commit",
+    "stimulus_family_id",
+    "renderer_id",
+    "stimulus_png_sha256",
+    "stimulus_decoded_rgb_sha256",
+    "stimulus_pixel_metadata_path",
     "participant_id",
     "session_id",
+    "session_block",
     "staircase_id",
     "trial_id",
     "phase",
     "trial_status",
+    "abort_reason",
+    "timestamp_utc",
+    "width_index",
     "stroke_width_px",
     "stroke_width_deg",
+    "delta_e00_level_index",
+    "target_delta_e00_simulated",
     "displayed_rgb_a",
     "displayed_rgb_b",
+    "displayed_lab_a",
+    "displayed_lab_b",
     "simulated_rgb_a",
     "simulated_rgb_b",
+    "simulated_lab_a",
+    "simulated_lab_b",
     "delta_e00_original",
     "delta_e00_simulated",
     "correct_position",
+    "position_colors",
+    "position_rgbs",
+    "odd_color",
     "response_position",
     "is_correct",
+    "response_time_ms",
+    "render_time_ms",
     "cvd_type",
     "machado_severity",
     "severity_source",
+    "severity_session_id",
+    "fixed_lapse",
+    "lapse_source",
+    "lapse_session_id",
     "random_seed"
   ],
   "properties": {
     "schema_version": {"const": "0.1-draft"},
     "data_origin": {"const": "synthetic"},
     "config_version": {"type": "string", "minLength": 1},
+    "config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "stimulus_family_id": {"type": "string", "minLength": 1},
+    "renderer_id": {"type": "string", "minLength": 1},
+    "stimulus_png_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stimulus_decoded_rgb_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stimulus_pixel_metadata_path": {"type": "string", "minLength": 1},
     "participant_id": {"type": "string", "pattern": "^P[0-9A-Za-z_-]+$"},
     "session_id": {"type": "string", "minLength": 1},
+    "session_block": {"type": ["integer", "null"], "minimum": 1, "maximum": 4},
     "staircase_id": {"type": ["string", "null"]},
     "trial_id": {"type": "integer", "minimum": 1},
     "phase": {"enum": ["practice", "calibration", "validation"]},
     "trial_status": {"enum": ["completed", "aborted"]},
+    "abort_reason": {"type": ["string", "null"], "minLength": 1},
+    "timestamp_utc": {"type": "string", "format": "date-time"},
+    "width_index": {"type": ["integer", "null"], "minimum": 1, "maximum": 3},
     "stroke_width_px": {"type": "integer", "minimum": 1},
     "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+    "delta_e00_level_index": {"type": ["integer", "null"], "minimum": 1, "maximum": 12},
+    "target_delta_e00_simulated": {"type": "number", "exclusiveMinimum": 0},
     "displayed_rgb_a": {"$ref": "#/$defs/rgb"},
     "displayed_rgb_b": {"$ref": "#/$defs/rgb"},
+    "displayed_lab_a": {"$ref": "#/$defs/lab"},
+    "displayed_lab_b": {"$ref": "#/$defs/lab"},
     "simulated_rgb_a": {"$ref": "#/$defs/rgb_number"},
     "simulated_rgb_b": {"$ref": "#/$defs/rgb_number"},
+    "simulated_lab_a": {"$ref": "#/$defs/lab"},
+    "simulated_lab_b": {"$ref": "#/$defs/lab"},
     "delta_e00_original": {"type": "number", "minimum": 0},
     "delta_e00_simulated": {"type": "number", "minimum": 0},
     "correct_position": {"type": "integer", "minimum": 1, "maximum": 4},
+    "position_colors": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"enum": ["a", "b"]}
+    },
+    "position_rgbs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/rgb"}
+    },
+    "odd_color": {"enum": ["a", "b"]},
     "response_position": {"type": ["integer", "null"], "minimum": 1, "maximum": 4},
     "is_correct": {"type": ["boolean", "null"]},
+    "response_time_ms": {"type": ["number", "null"], "minimum": 0},
+    "render_time_ms": {"type": "number", "minimum": 0},
     "cvd_type": {"enum": ["protan", "deutan"]},
     "machado_severity": {"type": "number", "minimum": 0, "maximum": 1},
     "severity_source": {"type": "string", "minLength": 1},
+    "severity_session_id": {"type": "string", "minLength": 1},
+    "fixed_lapse": {"type": "number", "minimum": 0, "exclusiveMaximum": 0.2},
+    "lapse_source": {"type": "string", "minLength": 1},
+    "lapse_session_id": {"type": "string", "minLength": 1},
     "random_seed": {"type": "integer", "minimum": 0}
   },
+  "allOf": [
+    {
+      "if": {"properties": {"phase": {"const": "calibration"}}},
+      "then": {
+        "properties": {
+          "width_index": {"type": "integer"},
+          "session_block": {"type": "integer"},
+          "delta_e00_level_index": {"type": "integer"},
+          "staircase_id": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"phase": {"const": "validation"}}},
+      "then": {
+        "properties": {
+          "width_index": {"type": "null"},
+          "session_block": {"type": "null"},
+          "delta_e00_level_index": {"type": "null"},
+          "staircase_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"trial_status": {"const": "completed"}}},
+      "then": {
+        "properties": {
+          "abort_reason": {"type": "null"},
+          "response_position": {"type": "integer"},
+          "is_correct": {"type": "boolean"},
+          "response_time_ms": {"type": "number"}
+        }
+      },
+      "else": {
+        "properties": {
+          "abort_reason": {"type": "string", "minLength": 1},
+          "response_position": {"type": "null"},
+          "is_correct": {"type": "null"},
+          "response_time_ms": {"type": "null"}
+        }
+      }
+    }
+  ],
   "$defs": {
     "rgb": {
       "type": "array",
@@ -68,6 +173,12 @@
       "minItems": 3,
       "maxItems": 3,
       "items": {"type": "number", "minimum": 0, "maximum": 255}
+    },
+    "lab": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "number"}
     }
   }
 }

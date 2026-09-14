@@ -29,7 +29,9 @@ Codex와 번갈아 작업할 때 같은 논의를 반복하지 않기 위해 유
   orig_dE=69.68  sim_dE= 9.32  confusing=True   → 최소 이동 보정
 ```
 
-같은 빨강이 상대 색에 따라 유지되거나 보정된다. **연구의 차별성이 실제로 작동한다.**
+같은 빨강이 상대 색에 따라 유지되거나 보정되는 **소프트웨어 동작만**
+확인했다. 이 예시는 합성 색쌍 단위 기능 시험이며, 사람의 C80 변화나 실제
+가독성 향상을 입증하지 않는다.
 
 ---
 
@@ -46,11 +48,15 @@ Codex와 번갈아 작업할 때 같은 논의를 반복하지 않기 위해 유
 ```
 팔레트에 THIRD(20,175,100) 이 있을 때
   보정 전 GREEN(60,160,60) vs THIRD : 7.65
-  보정 후 B'(10,171,94)    vs THIRD : 1.34   ← 제3색 위로 올라탐
+  보정 후 B'(10,171,94)    vs THIRD : 1.34   ← 기존 충돌을 더 악화시킴
   그런데 is_confusing(B', THIRD) = False
 ```
 
 **수정**: `find_minimum_correction(..., palette=[...])` 로 별도 제약을 추가했다.
+원래 목표 이상 떨어진 관계는 목표 미만으로 만들지 않고, 원래부터 목표
+미만이던 관계는 보정 전보다 더 가깝게 만들지 않는다. 즉 이 쌍의 보정이
+새 충돌을 만들거나 기존 충돌을 악화시키는 것만 막으며, 팔레트의 모든
+기존 문제까지 한 번에 해결했다고 주장하지 않는다.
 시뮬레이션 후 거리만 보고 `min D_CVD(후보, C) >= target` 을 요구하며,
 탐색 feasibility 마스크에 직접 AND 된다.
 
@@ -105,8 +111,11 @@ multi-start + 반복 정밀화 방식이다. 고정 표본에서 step 안정성�
 개선됐지만, 전체 8-bit 색공간에서 항상 같은 해나 전역 최적해를 찾는다는
 증명은 아니다.
 
-`benchmark_search.py --pairs 30` 실측 (seed 20260820, 결과는
-`results/search_benchmark.json`):
+아래 표는 과거 `benchmark_search.py --pairs 30` 개발 실행(seed 20260820)을
+기록한 것이다. 당시 JSON은 현재 구현·환경·commit provenance에 결합되지 않아
+Git 근거 산출물에서 제외했다. 따라서 현재 성능 수치로 인용하지 말고, 같은
+조건을 현재 commit에서 다시 실행해 provenance를 남기기 전에는 역사적 메모로만
+취급한다.
 
 | 지표 | 반복 정밀화 적용 후 |
 |---|---|
@@ -135,7 +144,7 @@ multi-start + 반복 정밀화 방식이다. 고정 표본에서 step 안정성�
 | 탐색 1회 (팔레트 있음, 대표 색쌍) | 약 3.9 초 |
 | 탐색 1회 (팔레트 없음, 대표 색쌍) | 약 7.1 초 |
 | 전체 테스트 41개 | 약 1분 32초 |
-| 벤치마크 30쌍 | 약 7분 42초 |
+| 과거 벤치마크 30쌍(현재 provenance 없음) | 약 7분 42초 |
 
 두 색 실험에는 문제없다. **이미지 단계에서 영역 쌍마다 돌리면 병목이 된다.**
 `_SINGLE_REFINEMENT_STARTS = 16` 의 비용 대비 효과는 아직 측정하지 않았다.
@@ -268,8 +277,9 @@ Claude CLI 내장 `claude mcp serve`도 프로토콜 초기화에는 성공했�
 - 세 교정 굵기 사이의 기하평균 검증 후보를 계산한다.
 - `plan_line_widths.py`가 실제 장치값을 받아 교정·검증 굵기의 시각도와 선행모델
   범위 이탈을 JSON으로 보고한다. 화면값과 굵기에는 기본값을 두지 않았다.
-- C80 정의, 자료 분리, B96/B288/C/D 비교, 독립 계단 3회, 구분 불가 기준,
-  윤리·중단 규칙을 시험 전 고정 문서에 모았다.
+- C80 정의, 자료 분리, B96/B288/C/D 비교, held-out 검증과 구분 불가 기준,
+  윤리·중단 규칙을 시험 전 고정 문서에 모았다. 당시의 `독립 계단 3회` 안은
+  이후 `64회 고정수준 블록 × 3세션`으로 대체되었다.
 
 ### 의도적으로 구현하지 않은 것
 
@@ -335,7 +345,8 @@ deutan 0.7에서 `(32,96,224)/(160,32,224)`의 시뮬레이션 색차 2.263을
 굵기의 C80만 기존 `run_baseline()`에 전달하도록 했다. 결과는 새
 `correction_results` 계약으로 다시 검증한 뒤 UTF-8 JSON으로 원자 저장한다.
 결과에는 두 입력 계약 버전과 탐색 간격·범위·방향 격자·청크 크기를 함께
-기록해 같은 계산을 재현할 수 있게 했다. 독립 검증 여부도 각 결과 행에
+기록해 같은 계산을 재현할 수 있게 했다. calibration에서 분리한 held-out
+검증 여부도 각 결과 행에
 보존한다.
 
 가짜 예제에는 유지 경로와 보정 경로를 각각 한 쌍씩 넣었다. C80 2.8에서
@@ -350,8 +361,269 @@ deutan 0.7에서 `(32,96,224)/(160,32,224)`의 시뮬레이션 색차 2.263을
 
 현재 결과 계약도 `0.1-draft`와 `synthetic`에 잠겨 있다. 또한 출력에
 `approximate_pairwise_not_global`을 기록해 색쌍별 근사해를 전체 화면의 전역
-최적해로 오해하지 않게 했다. 실제 사람 C80과 실제 독립 검증쌍은 팀 합의와
+최적해로 오해하지 않게 했다. 실제 사람 C80과 실제 held-out 검증쌍은 팀 합의와
 parameter recovery 이후 별도 1.0 계약을 만들기 전까지 이 실행기에 넣지 않는다.
 
 검증 결과: 공통 계약 예제 6개가 모두 통과했고, 기존 기능을 포함한 전체
 단위·통합 테스트 131개가 통과했다.
+
+---
+
+## 9. 픽셀 검증 가능한 선 자극 렌더러 (2026-09-14, Codex)
+
+`stimulus_renderer.py`에 Pillow 12.3.0 잠금 환경용 2×2 선 자극 렌더러를
+추가했다. 고수준 선 API 대신 반열린 정수 사각형을 채워 `butt` 끝,
+안티앨리어싱 없음, 0/90도 축 정렬, 정수 anchor와 짝수 extent의 음의 방향
+tie-break를 명시했다. 각 PNG 옆의 `*.pixels.json`에는 캔버스·배경·네 좌표·
+경계상자·길이·굵기·위치별 색·RGB별 픽셀 수·PNG 및 해독 RGB SHA-256을 남긴다.
+검증기는 파일을 다시 열어 전체 RGB byte 배열을 예상 raster와 대조한다.
+
+시행표 컴파일은 `color_design`의 Lab 중점·방향과 목표 허용오차, 참가자의
+Machado type/severity를 필수로 받고, 같은 목표 ΔE00는 한 번만
+`generate_symmetric_pair()`로 생성한다. 실제 8-bit RGB에서 재계산한 색차가
+허용오차를 넘거나 색역·기하·잠금 버전을 만족하지 못하면 부분 manifest 없이
+실패한다. 허용오차는 사람용 기본값 없이 동결 설정의 절대·상대값을 모두 받아
+`max(abs_tol, rel_tol*target)`으로 계산한다. 서로 다른 12수준이 같은 RGB 쌍으로
+양자화되거나 실제 표시 ΔE00 순서가 뒤집혀도 전체 컴파일을 거부한다. 생성된
+manifest와 PNG는 합성/실행 준비 산출물일 뿐 사람 반응 자료가 아니다.
+
+`experiment_runner`의 게이트는 설정, 렌더러, 세션 런타임으로 분리했다.
+`response_gui.py`에는 practice/calibration/validation 전체화면 제시, 키 응답,
+응답·렌더 시간, 중단 사유와 append-only JSONL 기록이 구현되어 있다. 다만
+config-only 점검의 `human_data_collection_allowed`는 의도적으로 항상 false다.
+실제 한 세션의 허가는 `response_gui`가 manifest·화면·Git·validation plan을
+다시 검사하고 운영자가 해당 세션의 동의를 명시했을 때만 true가 된다.
+
+교정 288시행은 4개 사전 세션 블록에 72회씩 나눈다. 각 블록은 굵기당 24회,
+각 굵기×수준 셀당 2회이며 네 블록을 합치면 위치×odd색 8조합이 정확히 한 번씩
+나온다. 블록 내부만 seed로 섞는다. 시행 저널 고유 키는
+`(participant_id, config_sha256, trial_id)`라서 session 이름만 바꾼 중복 실행을
+막는다.
+
+검증 결과: 렌더러·시행표 전용 테스트 21개 통과. PNG 변조, 메타데이터 변조,
+좌표 겹침·클리핑, 모호한 렌더링 정책, 참가자 설정 불일치, 도달 불가능한 목표
+색차를 모두 거부한다. 실제 모니터 출력, 색 프로파일 적용, 키 입력과 세션 흐름은
+아직 검증하지 않았다.
+
+---
+
+## 10. 교정자료 전용 심리측정 분석기 (2026-09-14, Codex)
+
+`analyze_calibration.py`는 파일로 받은 한 참가자의 동결 config, trial JSONL과
+실제 표시한 `calibration_manifest`를 검증한 뒤 B96/B288/C96/D288, 모수적
+bootstrap, 두 held-out 후보의 예측 C80을 계산한다. 사람 자료는 manifest가
+없으면 거부하고, 입력이 없을 때 임의 수치를 채우는 옵션도 없다. 합성 자료는
+`--allow-synthetic`을 명시해야만 실행된다.
+
+적합 전에 config 원문 SHA-256과 모든 행의 hash, 참가자·Machado·고정 lapse
+값/출처/독립 세션, stimulus family, renderer, Git commit을 대조한다. 완료
+교정자료는 3굵기×96뿐 아니라 4개 session block, 12수준, 네 정답 위치와 odd
+A/B가 동결 시행표대로 완전 균형인지 검사한다. 같은 trial ID를 session 이름만
+바꿔 다시 넣어도 `(participant, config hash, trial ID)` 중복으로 거부한다.
+
+C96 상대 배율은 별도 재구현하지 않고 `experiment_design.szafir_relative_scale`
+에 config의 동결 Lab 방향과 확률 좌표를 전달한다. 세 교정 굵기와 두 후보 중
+하나라도 Szafir 선 측정 범위 0.05~0.35도를 벗어나면 외삽하지 않고 분석 전체를
+차단한다. 기준 굵기는 오름차순 세 굵기의 중앙값이며 B96/C96에는 정확히 그
+96회만 들어간다.
+
+새 `calibration_model_fits` 1.0 스키마는 이 결과를
+`calibration_only_intermediate`, `contains_observed_held_out=false`,
+`final_thresholds_ready=false`, `research_conclusion_allowed=false`로 고정한다.
+따라서 calibration에서 분리한 held-out validation block의 관측 C80을 담는 human
+`participant_thresholds` 최종 계약과 구조적으로 섞이지 않는다. 합성 288행
+fixture의 전체 CLI 실행과 자료 없음, hash·lapse provenance·시행 수·중복 ID·
+Szafir 범위 위반 거부 경로를 자동 테스트로 고정했다.
+
+---
+
+## 11. 고정수준 validation과 응답 GUI (2026-09-14, Codex)
+
+초기의 적응형 계단 계획을 폐기하고 `validation_design.py`가 교정 반응을 보지
+않은 두 held-out 후보 중 B96/C96의 절대 로그 C80 비가 큰 한 굵기를 고르게
+했다. 선택 굵기에서는 8수준×4정답 위치×odd 색 정체 2의 64회 완전요인 블록을
+서로 다른 seed와 session으로 세 번 만든다. 원 config hash, 교정 분석 원문 hash,
+192개 trial과 renderer hash를 불변 validation plan에 묶는다.
+
+`analyze_validation.py`는 세 블록을 따로 적합한 것으로 가장하지 않는다. held-out
+반응만으로 블록 C80 세 개와 공통 `w` 하나를 joint MLE로 적합하고, 모수적
+bootstrap에서도 네 모수를 함께 재적합한다. `CV<=0.20`과 세 C80 CI의 공통
+교집합을 만족할 때만 joint log-C80 공분산을 사용한 GLS pooled C80을 만든다.
+블록별 자유 `w`의 AIC가 더 낮으면 `shared_w_sensitivity_warning`과 함께
+`indeterminate`로 남긴다. AIC 경고가 없더라도 paired 교정 예측과 validation
+pooled bootstrap을 결합한 B96/C96 `Δloss` 95% 구간이 0을 포함하면 모델 우열을
+`indeterminate`로 남긴다. 필요한 복제값이 없으면
+`comparison_unresolvable`로 fail closed한다.
+
+`response_gui.py`는 validation에서도 매 시행 plan hash를 기록하고, 중복 trial과
+다른 participant/config가 섞인 저널을 거부한다. 자동 테스트는 프로그램의 상태
+전이와 기록 규칙을 검증한 것이며, 실제 화면 1:1 raster, 색관리, 관찰거리,
+키 입력과 피로·중단 절차의 현장 검증을 대신하지 않는다.
+
+사람 검증 분석에는 실제 표시한 `validation_manifest`가 필수다. 분석기는 응답을
+plan뿐 아니라 PNG·sidecar·디코딩 RGB hash와도 다시 대조한다. 대표 후보 수준의
+개발 recovery와 실제 동결 plan의 200회×bootstrap 50회 recovery를 구분하며,
+후자의 hash-bound 통과 파일이 없으면 validation 수집을 허용하지 않는다.
+
+---
+
+## 12. 연구용 동일 Lab 경로 보정 분리 (2026-09-14, Codex)
+
+`path_correction.py`는 C80을 측정한 Lab 중점·방향의 대칭 색쌍만 받는다. 동결한
+scale grid를 8-bit sRGB로 양자화해 얻은 유일 후보를 모두 검사하고, Machado 후
+ΔE00가 모형의 목표 C80 이상인 후보 중 두 색의 OKLab 이동 합이 가장 작은 것을
+고른다. 따라서 반환하는 최소값은 **그 유한 동일경로 후보 집합 안에서는 정확**
+하지만 연속 색공간이나 팔레트 전체의 전역 최소가 아니다.
+
+기존 A만/B만/둘 다 radial·multi-start 탐색과 palette 충돌 제약은 임의 색쌍을
+다루는 보조 software baseline으로 유지한다. 측정한 색 방향과 중점 밖으로 나갈
+수 있으므로 독립 인간 판별 없이 연구의 행동적 가독성 근거로 사용하지 않는다.
+
+`run_path_correction_analysis.py`는 사람 모드에서 config·validation plan·최종
+`participant_thresholds`의 raw/canonical hash, 참가자/CVD/severity, 선택 굵기,
+검증 안정성·사람 확인과 분석 코드 hash를 대조한 뒤 이 동일경로 탐색을 실행한다.
+사람 자료에서는 B96/B288/C96/D288 네 모형을 고정 순서로 모두 처리하고,
+일부만 고르는 선택 보고를 거부한다. 보정 wrapper뿐 아니라 Machado,
+CIEDE2000, 색공간 변환, 경로 생성, C80 adapter, schema와 lockfile의 SHA-256
+전체를 기록하며, 이 파일들이 모두 Git에 추적되고 현재 commit과 같을 때만
+계산 제약 주장을 허용한다.
+또한 plan의 동결된 8개 색차 수준을 모두 plan 순서로 분석하며, 사람 모드의
+단일 수준 선택 인수는 거부한다. 따라서 결과를 본 뒤 유리한 원본 수준만 골라
+보고하는 선택편향 경로를 차단한다. 한 수준이라도 실패하면 부분 결과를 쓰지 않는다.
+출력은 `computational_constraint_claim_allowed=true`,
+`human_readability_improvement_claim_allowed=false`를 분리해 기록한다.
+
+---
+
+## 13. recovery와 사람 수집 게이트 구분 (2026-09-14, Codex)
+
+기본 후보 수준의 `parameter_recovery.synthetic.json`은 분석기 개발 점검이다.
+교정 시작에는 참가자별 동결 config의 실제 굵기·12수준·Lab 방향·lapse를 넣은
+config-bound 200회 recovery가 별도로 필요하다. 교정 288회 뒤에는 선택된
+validation plan의 실제 양자화 8수준을 넣은 200회×bootstrap 50회 plan-bound
+recovery가 다시 필요하다. 앞 단계의 대표 결과는 뒤 단계 게이트를 대신하지
+않는다.
+
+현재 `research_readiness.py`는 교정과 validation 준비도를 분리해 보고한다.
+운영상 canonical 산출물 한 세트를 검사하므로 n=2 사례 참가자는 한 명씩 전
+과정을 완료하고 비식별 결과를 참가자별로 보관한 뒤 다음 참가자로 넘어간다.
+
+---
+
+## 14. 분석 의존성 전체 provenance 결합 (2026-09-14, Codex)
+
+기존에는 교정·검증·recovery 산출물이 주로 실행 wrapper 한 파일의 SHA-256만
+기록했다. 이 방식은 `psychometrics.py`, `validation_psychometrics.py`, 색변환
+코드나 schema가 바뀌어도 과거 산출물이 현재 계산과 같은 것처럼 통과할 수
+있었다.
+
+`implementation_provenance.py`에 단계별 명시적 파일 집합을 두고, 각 산출물에
+프로젝트 상대 경로를 키로 하는 `implementation_hashes` map을 저장하도록
+바꿨다. 각 집합은 수치 계산에 참여하는 first-party 모듈, 입력·출력 schema,
+`requirements-lock.txt`를 포함한다. `validate_calibration_artifact`,
+`validate_plan`, `threshold_adapter`, `research_readiness`는 현재 저장소의 정확한
+키 집합과 hash를 비교한다. 누락·추가·변경 중 하나라도 있으면 다음 단계로
+진행하지 않는다. validation plan에서는 이 map 자체도 canonical `plan_sha256`
+preimage에 들어가므로 map을 고친 뒤 plan만 다시 해시하는 우회도 거부된다.
+
+호환용 단일 `analysis_script_sha256`/`implementation_sha256` 필드는 당분간
+유지하되, 해당 wrapper의 map 항목과 같은 값인지 검사한다. 새 검사는
+psychometric 의존성 변조, plan 재해시 우회, validation recovery 의존성 변조,
+최종 human threshold 의존성 변조를 포함한 회귀 테스트로 고정했다.
+
+---
+
+## 15. 동일경로 최소의 feasible 집합·provenance 재감사 (2026-09-14, Codex)
+
+문서는 `Machado 후 ΔE00 >= C80`인 유한 후보 전부 중 OKLab 이동 합 최소를
+주장했지만, 구현은 그 집합을 만든 뒤 config의 자극 생성 허용오차를 목표
+초과량 상한으로 다시 적용했다. 이 때문에 더 적게 움직이는 후보의 초과량이
+상한보다 크면 진짜 최소가 배제되고, 도달 가능한 후보가 모두 상한 밖이면
+보정이 잘못 실패할 수 있었다.
+
+초과량 상한과 관련 인수를 제거했다. 이제 표시 RGB에서 재계산한 ΔE00가 목표
+이상인 모든 유일 후보가 비용 비교에 참여하며, 후보가 하나도 없을 때만
+도달 불가능으로 실패한다. config의 절대·상대 목표 허용오차는 동결 자극 수준
+생성에만 쓰고 보정 제약을 완화하거나 후보를 제거하지 않는다. 큰 초과량의
+저비용 후보도 선택되는 사례와 큰 초과량 후보만 있는 도달 가능 사례를 회귀
+테스트로 고정했다.
+
+또한 보정 provenance를 validation 분석 의존 집합 전체에서 상속하도록 바꿔
+`experiment_runner.py`, `config.py`, `data_contracts.py`,
+`analyze_calibration.py`, `analyze_validation.py`, `psychometrics.py`, 렌더러·실험
+설계 모듈과 실제 읽는 human/development schema가 모두 hash 집합에 들어가게
+했다. 이 상속 관계와 경로별 필수 파일은 회귀 테스트로 고정했다.
+
+---
+
+## 16. 사람 저널·중단·검토 확정 우회 차단 (2026-09-14, Codex)
+
+기존 GUI는 `--journal`로 임의의 새 JSONL을 선택할 수 있었다. 따라서 이전
+파일의 중단 기록과 최초 시행 시각이 남아 있어도 새 파일로 실행하면 이력을
+보지 못했다. 사람 config 1.0에 `journal` 계약을 필수화해 root를 정확히
+`data/experiment/raw`로, phase별 파일을 `{participant_id}-{phase}.jsonl`로
+고정했다. config 원문 hash가 자극 manifest와 각 시행에 이미 결박되므로 GUI와
+사람 분석기는 같은 participant+config+phase에서 오직 그 canonical 파일만
+받는다. 외부 root, 경로 이동, 다른 참가자 파일명, phase 파일 공유와
+`--journal` 교체는 fail closed한다.
+
+연습 1개, 교정 4개, validation 3개의 session ID도 config에 사전 동결하고 모두
+다르게 했다. GUI는 첫 자극 전에 현재 block의 정확한 ID인지, 기존 ID가 다른
+block에 재사용됐는지, 같은 block 이력이 다른 ID로 이어졌는지 검사한다.
+`TrialJournal`은 completed와 aborted calibration/validation을 terminal key로
+관리하고 `remaining_trials`도 그 key를 제외한다. aborted practice만 재시도가
+가능하며, 기존 또는 실행 중 본 시행 abort를 발견한 GUI는 더 제시하지 않는다.
+JSON config/manifest/journal/review에서 중복 key도 거부한다.
+
+사람 validation의 `confirmed=true`는 더 이상 boolean 플래그만으로 만들 수
+없다. 별도 review record의 검토자 가명 ID, 검토 시각, 메모, 명시적 승인과
+participant/config/raw trial/plan/manifest hash를 대조하고 review 원문 SHA-256을
+최종 결과에 보존한다. 검토 시각이 마지막 완료 시행 전이거나 현재 UTC 뒤면
+거부한다. downstream C80 adapter도 review의 결박 필드와 최종 산출물 provenance를
+다시 대조한다.
+
+남은 물리적 한계가 있다. 이 소프트웨어는 OS 권한 밖에서 canonical JSONL을
+삭제·rollback하거나 디스크 자체를 복제한 행위를 독립적으로 탐지하지 못한다.
+또한 자극 onset 뒤 append+`fsync` 전에 전원·프로세스가 강제 종료되면 마지막
+노출과 그 직전 경과시간을 기록하지 못할 수 있다. 승인된 장치의 접근통제·백업과
+세션 운영 기록이 필요하며, 그런 crash가 의심되면 새 파일로 재개하지 말고 해당
+참가자 자료를 제외·편차 보고한다. 기존 JSONL 행은 수정하거나 삭제하지 않는다.
+
+---
+
+## 17. 교정 굵기별 기울기 가정 감사 (2026-09-15, Codex)
+
+D288은 세 굵기에서 심리측정 기울기 `w`가 같다고 가정하지만, 기존 교정
+산출물은 이 가정을 확인하지 않았다. 교정 288회에 굵기별 C80 세 개+공통
+`w` 하나(`k=4`)와 굵기별 C80·`w` 여섯 개(`k=6`)를 적합해 AIC를 비교하고,
+AIC·차이·두 적합의 수렴 상태를 산출물에 보존하도록 했다. 둘 중 하나라도
+수렴하지 않으면 `free_w_preferred=false`로 우회하지 않고 비교 미해결로 둔다.
+
+비교 미해결, 자유 `w`의 더 낮은 AIC, 또는 D288 수치 미완료 중 하나면
+`d288_beta_interpretation_eligible=false`다. 이 플래그를 최종
+`participant_thresholds`와 동일경로 보정 보고서까지 전파한다. 이는 D288의
+beta·굵기효과 보조 해석만 막고, 기준 굵기만 쓰는 C96 대 B96 주 비교나 D288
+예측값의 계산 보정은 막지 않는다. 네 교정 session block의 정답률도 학습·피로
+확인용 기술통계로 저장하되 제외 기준이나 유의성 검정으로 쓰지 않는다.
+
+검증 세 블록의 공통/자유 `w` 비교도 어느 적합이든 미수렴하면 primary
+Δloss를 `indeterminate`로 만든다. 세 블록은 calibration과 분리된 같은
+참가자의 session-separated 반복일 뿐 참가자 수준 독립 표본이나 IID 자료가
+아니다. 모수 bootstrap의 조건부 Bernoulli 독립 가정 때문에 학습·피로·연속
+상관이 있으면 CI가 과소 추정될 수 있다는 한계를 프로토콜에 명시했다.
+
+---
+
+## 18. 원격 작업 브랜치 호환성·개인정보 감사 (2026-09-15, Codex)
+
+`feature/hanjeonghun-experiment`, `hanjeonghun-colorvision`, `related-work`를
+읽기 전용으로 확인했다. 예전 사람 실험 브랜치의 계단법, 자유 lapse 적합,
+다른 심리측정식, 중단 세션 이어하기와 큰 패치 severity 추정은 현재 고정수준
+direct-C80 프로토콜 및 중단 처리와 호환되지 않는다. 일부 코드만 섞으면 분석
+대상과 사전 규칙이 달라지므로 병합하지 않았다.
+
+또한 legacy colorvision 브랜치에는 실제 참가자 자료일 가능성이 있는 CSV·그림과
+식별 가능한 파일명이 있다. 해당 자료는 main에 복사하지 않았고 현재 연구의
+근거로 사용하지 않는다. `.gitignore`는 앞으로의 추가만 막을 뿐 이미 원격
+브랜치에 올라간 기록을 지우지 못하므로, 저장소 관리자가 참가자 동의·공개 범위를
+확인한 뒤 필요하면 별도 보존 및 GitHub 기록 정리 절차를 결정해야 한다.

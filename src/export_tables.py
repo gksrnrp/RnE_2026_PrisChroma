@@ -4,7 +4,7 @@
 
 * ``regions.csv``    영역별 색·기하 속성 (이창민)
 * ``pairs.csv``      영역 쌍 원본 수치 (이창민, 한정훈)
-* ``conditions.md``  2차 실험 자극 조건 (한정훈)
+* ``conditions.md``  실제 이미지 요소 분포 참고표 (실험 조건 확정본 아님)
 
 ``conditions.md``만 저장소에 커밋한다. 나머지 둘은 크기 때문에 제외한다.
 """
@@ -22,11 +22,6 @@ PERCENTILES = (5, 25, 50, 75, 95)
 
 # 저장소 규칙이 LF다. 윈도우에서 돌려도 CRLF가 섞이지 않게 명시한다.
 LF = "\n"
-
-# 1차 실험에서 측정된 개인 역치. 큰 색면을 맞붙여 잰 최적 조건 값이므로
-# 실제 이미지에 그대로 쓰지 않는다. 여기서는 상대 비교의 기준으로만 쓴다.
-MEASURED_OPTIMAL_THRESHOLD = 0.62
-
 
 def _load(json_path: str | Path) -> dict:
     with open(json_path, encoding="utf-8") as handle:
@@ -109,7 +104,11 @@ def build_conditions(
     region_rows: list[dict],
     pair_rows: list[dict],
 ) -> str:
-    """한정훈에게 넘길 2차 실험 조건 문서를 만든다."""
+    """실제 이미지 요소의 탐색적 분포표를 만든다.
+
+    이 함수는 사람 실험의 굵기나 C80을 정하지 않는다. 과거 버전처럼
+    0.62를 자동 대입하거나 굵기×거리 2×2 설계를 생성하지 않는다.
+    """
     images = payload["measurements"]
     has_arcmin = any(
         "stroke_min_arcmin" in row for row in pair_rows
@@ -143,7 +142,7 @@ def build_conditions(
     )
 
     lines: list[str] = []
-    lines.append("# 2차 실험 자극 조건 (측정 기반)")
+    lines.append("# 실제 이미지 요소 분포 (탐색적 참고자료)")
     lines.append("")
     lines.append("받는 사람: 한정훈 · 만든 사람: 정인교 (②단계 탐지·측정)")
     lines.append("")
@@ -238,41 +237,25 @@ def build_conditions(
         )
     lines.append("")
 
-    lines.append("## 제안하는 자극 조건")
+    lines.append("## 연구 설계에 사용할 때의 제한")
     lines.append("")
     lines.append(
-        "굵기는 5%와 50%, 거리는 25%와 75% 두 수준씩 잡으면 2×2 네 조건이 "
-        "된다. 얇고 먼 조건과 두껍고 가까운 조건 사이에서 역치가 얼마나 "
-        f"올라가는지를 재면, 1차 실험의 최적 조건 값 "
-        f"{MEASURED_OPTIMAL_THRESHOLD}에 곱할 환산 비율을 구할 수 있다."
+        "이 표는 응용 화면의 분포를 설명할 뿐 사람 실험 조건을 자동으로 "
+        "정하지 않는다. 현재 연구에서는 거리·길이·배경을 고정하고 "
+        "사전등록한 세 굵기만 바꾸어야 굵기 효과를 해석할 수 있다."
     )
     lines.append("")
-    lines.append("| 조건 | 굵기 | 중심 거리 |")
-    lines.append("|---|---|---|")
-    stroke_levels = _percentile_row(stroke_pair_px)
-    distance_levels = _percentile_row(centroid_px)
-    for stroke_name, stroke_key in (("얇음(5%)", "p5"), ("보통(50%)", "p50")):
-        for distance_name, distance_key in (
-            ("가까움(25%)", "p25"),
-            ("멂(75%)", "p75"),
-        ):
-            lines.append(
-                f"| {stroke_name} × {distance_name} | "
-                f"{stroke_levels[stroke_key]:.2f} px | "
-                f"{distance_levels[distance_key]:.1f} px |"
-            )
-    lines.append("")
     lines.append(
-        f"환산 비율 = (그 조건에서 잰 역치) / {MEASURED_OPTIMAL_THRESHOLD}. "
-        "이 비율이 나오면 ②단계 측정값에 곱해 쓸 기준을 만들 수 있다."
+        "큰 패치에서 얻은 0.62 같은 값이나 임의의 환산 배수는 이 파일에서 "
+        "사용하지 않는다. 실제 C80은 고정된 표시 조건의 사람 응답으로 "
+        "별도 추정한다."
     )
     lines.append("")
 
     lines.append("## 읽을 때 주의할 점")
     lines.append("")
     lines.append(
-        f"- {MEASURED_OPTIMAL_THRESHOLD}는 큰 색면 두 개를 맞붙여 본 최적 "
-        "조건의 값이다. 위 표의 얇은 선에는 그대로 쓸 수 없다."
+        "- 이 분포만으로 색 혼동 확률이나 C80을 알 수 없다."
     )
     lines.append(
         "- 두께는 거리변환으로 추정한 값이다. 덩어리 모양 영역에서는 "
@@ -324,7 +307,6 @@ def export_all(
 
 
 __all__ = [
-    "MEASURED_OPTIMAL_THRESHOLD",
     "PERCENTILES",
     "build_conditions",
     "collect_rows",

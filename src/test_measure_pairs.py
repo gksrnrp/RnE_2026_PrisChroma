@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,7 +39,18 @@ class BboxGapTests(unittest.TestCase):
             ]
         )
         gap = _bbox_gap(boxes, np.array([0]), np.array([1]))
-        self.assertAlmostEqual(float(gap[0]), 10.0)
+        # 좌표 11~19의 빈 픽셀 9개가 사이에 있다.
+        self.assertAlmostEqual(float(gap[0]), 9.0)
+
+    def test_boxes_that_touch_on_next_pixel_have_zero_gap(self):
+        boxes = np.array(
+            [
+                [0.0, 0.0, 10.0, 10.0],
+                [11.0, 0.0, 20.0, 10.0],
+            ]
+        )
+        gap = _bbox_gap(boxes, np.array([0]), np.array([1]))
+        self.assertEqual(float(gap[0]), 0.0)
 
     def test_overlapping_boxes_have_zero_gap(self):
         boxes = np.array(
@@ -58,7 +70,8 @@ class BboxGapTests(unittest.TestCase):
             ]
         )
         gap = _bbox_gap(boxes, np.array([0]), np.array([1]))
-        self.assertAlmostEqual(float(gap[0]), 5.0)
+        # 빈 행 2개, 빈 열 3개의 대각 거리다.
+        self.assertAlmostEqual(float(gap[0]), math.sqrt(13.0))
 
 
 class ConditionKeyTests(unittest.TestCase):

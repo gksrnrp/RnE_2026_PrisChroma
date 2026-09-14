@@ -4,9 +4,8 @@
 목록을 그 입력 형태로 바꾸고, 결과를 영역 단위로 되돌린다.
 ``baseline.py``는 읽기만 하고 고치지 않는다.
 
-주의: 여기서 쓰는 임계값은 ①단계 실험으로 확정되기 전의 개발용
-설정값이다. 연구 결과로 서술할 수 없다. 이 파일이 하는 일은 파이프라인이
-끝까지 이어지는지 확인하는 것뿐이다.
+임계값에는 안전한 기본값이 없다. 호출자는 합성 점검값인지 실제 실험으로
+확정한 값인지 출처와 함께 명시적으로 넘겨야 한다.
 """
 
 from __future__ import annotations
@@ -17,15 +16,6 @@ import numpy as np
 
 from baseline import run_baseline
 from config import ConfusionThresholds, SearchConfig
-
-
-# 개발용 임시 임계값. ①단계 결과가 나오면 통째로 교체한다.
-# 0.62는 큰 색면을 맞붙여 잰 값이라 이미지 전체에는 그대로 못 쓴다.
-DEVELOPMENT_THRESHOLDS = ConfusionThresholds(
-    original_min=10.0,
-    simulated_max=5.0,
-    target=15.0,
-)
 
 
 def select_candidate_pairs(
@@ -73,7 +63,7 @@ def correct_measurement(
     *,
     cvd_type: str,
     severity: float,
-    thresholds: ConfusionThresholds = DEVELOPMENT_THRESHOLDS,
+    thresholds: ConfusionThresholds,
     search_config: SearchConfig | None = None,
     use_palette: bool = True,
     exclude_background: bool = True,
@@ -158,8 +148,13 @@ def correct_measurement(
         for region_id, colors in proposals.items()
         if len(set(colors)) > 1
     }
+    # 서로 다른 쌍에서 한 영역에 상충하는 색을 제안했다면 첫 제안을 임의로
+    # 채택하지 않는다. 전역 팔레트 최적화가 없는 현재 단계에서는 해당 영역을
+    # 미해결로 남기는 것이 유일하게 정직한 동작이다.
     region_colors = {
-        region_id: list(colors[0]) for region_id, colors in proposals.items()
+        region_id: list(colors[0])
+        for region_id, colors in proposals.items()
+        if len(set(colors)) == 1
     }
     return {
         "image": measurement["image"],
@@ -169,7 +164,10 @@ def correct_measurement(
             "original_min": thresholds.original_min,
             "simulated_max": thresholds.simulated_max,
             "target": thresholds.target,
-            "note": "①단계 실험 전의 개발용 설정값이다.",
+            "note": (
+                "호출자가 명시적으로 제공한 값이다. 실제 실험값인지 "
+                "합성 점검값인지는 원자료 메타데이터로 별도 확인해야 한다."
+            ),
         },
         "candidate_pair_count": len(candidates),
         "corrected_pair_count": sum(
@@ -178,6 +176,7 @@ def correct_measurement(
         "target_met_count": sum(record["target_met"] for record in results),
         "region_conflict_count": len(conflicts),
         "region_conflicts": conflicts,
+        "unresolved_region_ids": sorted(conflicts),
         "region_colors": region_colors,
         "pairs": results,
     }
@@ -196,7 +195,9 @@ def render_corrected_image(
     """제안된 보정색으로 영역을 칠한 이미지를 만든다.
 
     영역 대표색을 통째로 갈아끼우므로 안티앨리어싱된 경계는 원본 그대로
-    남는다. 보고서 그림용이지 최종 보정 결과물이 아니다.
+    남는다. ``correct_measurement``에서 충돌한 영역은 ``region_colors``에
+    포함되지 않아 원본으로 남는다. 보고서 진단 그림용이지 최종 보정
+    결과물이 아니다.
     """
     corrected = image.copy()
     for region_id, color in region_colors.items():
@@ -205,7 +206,6 @@ def render_corrected_image(
 
 
 __all__ = [
-    "DEVELOPMENT_THRESHOLDS",
     "correct_measurement",
     "render_corrected_image",
     "select_candidate_pairs",

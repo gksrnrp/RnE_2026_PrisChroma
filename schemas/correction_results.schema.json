@@ -9,6 +9,7 @@
     "data_origin",
     "generated_by",
     "optimization_scope",
+    "interpretation_scope",
     "inputs",
     "search",
     "threshold",
@@ -20,6 +21,7 @@
     "data_origin": {"const": "synthetic"},
     "generated_by": {"const": "run_personal_correction.py"},
     "optimization_scope": {"const": "approximate_pairwise_not_global"},
+    "interpretation_scope": {"const": "model_constraint_only_not_human_readability"},
     "inputs": {
       "type": "object",
       "additionalProperties": false,
@@ -55,7 +57,7 @@
         "severity": {"type": "number", "minimum": 0, "maximum": 1},
         "severity_source": {"type": "string", "minLength": 1},
         "confirmed": {"const": false},
-        "model": {"enum": ["A", "B96", "B288", "C96", "D288"]},
+        "model": {"enum": ["B96", "B288", "C96", "D288"]},
         "stroke_width_px": {"type": "integer", "minimum": 1},
         "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
         "c80_sim": {"type": "number", "minimum": 0},
@@ -96,7 +98,7 @@
         "properties": {
           "pair_id": {"type": "string", "minLength": 1},
           "source_case": {"type": "string", "minLength": 1},
-          "selection_split": {"const": "held_out_from_psychometric_fit"},
+          "selection_split": {"const": "synthetic_pipeline_check"},
           "status": {"enum": ["unchanged", "corrected", "search_failed"]},
           "reason": {"type": "string", "minLength": 1},
           "input_rgb_a": {"$ref": "#/$defs/rgb"},

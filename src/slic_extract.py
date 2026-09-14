@@ -112,18 +112,101 @@ def build_adjacency(labels: np.ndarray) -> dict[tuple[int, int], int]:
     }
 
 
+def _distance_transform_1d(values: np.ndarray) -> np.ndarray:
+    """Felzenszwalb--Huttenlocher의 1차원 squared EDT를 계산한다."""
+    length = values.size
+    locations = np.empty(length, dtype=np.int64)
+    boundaries = np.empty(length + 1, dtype=float)
+    result = np.empty(length, dtype=float)
+    last = 0
+    locations[0] = 0
+    boundaries[0] = -np.inf
+    boundaries[1] = np.inf
+
+    for position in range(1, length):
+        previous = locations[last]
+        crossing = (
+            (values[position] + position * position)
+            - (values[previous] + previous * previous)
+        ) / (2.0 * (position - previous))
+        while crossing <= boundaries[last]:
+            last -= 1
+            previous = locations[last]
+            crossing = (
+                (values[position] + position * position)
+                - (values[previous] + previous * previous)
+            ) / (2.0 * (position - previous))
+        last += 1
+        locations[last] = position
+        boundaries[last] = crossing
+        boundaries[last + 1] = np.inf
+
+    last = 0
+    for position in range(length):
+        while boundaries[last + 1] < position:
+            last += 1
+        nearest = locations[last]
+        result[position] = (
+            (position - nearest) * (position - nearest) + values[nearest]
+        )
+    return result
+
+
+def _distance_transform(mask: np.ndarray) -> np.ndarray:
+    """SciPy가 없을 때도 같은 픽셀중심 Euclidean EDT를 반환한다."""
+    try:
+        from scipy.ndimage import distance_transform_edt
+    except ImportError:
+        # 연구 실행 환경에는 SciPy를 고정 설치하지만, 핵심 정의와 단위
+        # 테스트는 NumPy만 있는 최소 환경에서도 검증할 수 있게 한다.
+        height, width = mask.shape
+        unreachable = float((height + width + 1) ** 2)
+        squared = np.where(mask, unreachable, 0.0)
+        horizontal = np.empty_like(squared)
+        for row in range(height):
+            horizontal[row] = _distance_transform_1d(squared[row])
+        transformed = np.empty_like(horizontal)
+        for column in range(width):
+            transformed[:, column] = _distance_transform_1d(horizontal[:, column])
+        return np.sqrt(transformed)
+    return np.asarray(distance_transform_edt(mask), dtype=float)
+
+
 def _stroke_width(mask: np.ndarray) -> float:
-    """영역의 대표 두께를 거리변환으로 추정한다.
+    """영역의 최대 국소 두께를 이산 픽셀 폭으로 추정한다.
 
-    선 모양이면 거리변환 최댓값이 선의 반폭이므로 2배가 선 두께가 된다.
-    덩어리 모양이면 내접원 지름이 되어 가장 좁은 곳이 아니라 가장 두꺼운
-    곳의 폭을 준다는 점에 주의한다.
+    픽셀 중심 EDT의 최댓값을 무조건 두 배로 하면 1픽셀 선을 2픽셀로,
+    3픽셀 선을 4픽셀로 세는 반 픽셀 경계 오류가 난다. 배경 픽셀 중심까지의
+    거리에서 양쪽 반 픽셀을 빼 ``2*r-1``로 바꾸고, 짝수 폭에서만 생기는
+    2x2 최대거리 plateau가 있으면 한 픽셀을 더한다. 따라서 충분히 긴
+    수평·수직 직선은 홀수와 짝수 폭 모두 정확히 센다.
+
+    굽거나 갈라진 선, 대각선, 덩어리형 영역에서는 이 값이 가장 큰 내접
+    국소 지름에 가까운 *조작적 추정치*다. 전체 영역의 평균 두께나 가장
+    좁은 통로 폭을 뜻하지 않는다.
     """
-    from scipy.ndimage import distance_transform_edt
+    array = np.asarray(mask)
+    if array.ndim != 2:
+        raise ValueError("stroke-width mask는 2차원이어야 합니다.")
+    foreground = array.astype(bool, copy=False)
+    if not np.any(foreground):
+        return 0.0
 
-    padded = np.pad(mask, 1, mode="constant", constant_values=False)
-    distance = distance_transform_edt(padded)
-    return float(2.0 * distance.max())
+    padded = np.pad(foreground, 1, mode="constant", constant_values=False)
+    distance = _distance_transform(padded)
+    radius = float(distance.max())
+    maximum_layer = padded & np.isclose(distance, radius, rtol=0.0, atol=1e-12)
+    has_even_plateau = bool(
+        maximum_layer.shape[0] > 1
+        and maximum_layer.shape[1] > 1
+        and np.any(
+            maximum_layer[:-1, :-1]
+            & maximum_layer[1:, :-1]
+            & maximum_layer[:-1, 1:]
+            & maximum_layer[1:, 1:]
+        )
+    )
+    return float(max(1.0, 2.0 * radius - 1.0) + int(has_even_plateau))
 
 
 def _median_color(pixels: np.ndarray) -> tuple[int, int, int]:
@@ -174,7 +257,9 @@ def _merge_labels(
     이어져 통째로 사라진다.
 
     우선순위 큐에 넣은 색차는 합병이 일어나면 옛값이 되므로, 꺼낸 뒤
-    현재 덩어리 색으로 다시 재어 값이 커졌으면 다시 넣는다.
+    현재 덩어리 색으로 다시 잰다. 합병 직후에는 현재 이웃도 모두 다시
+    계산하여 처음에는 임계값 밖이던 경계가 새로 안으로 들어오는 경우를
+    놓치지 않는다.
     """
     if merge_thresh <= 0.0 or not adjacency:
         return labels
@@ -187,8 +272,11 @@ def _merge_labels(
     cluster_area = np.asarray(areas, dtype=float).copy()
     union_find = _UnionFind(len(colors))
 
+    neighbors = [set() for _ in range(len(colors))]
     heap = []
     for left, right in adjacency:
+        neighbors[left].add(right)
+        neighbors[right].add(left)
         difference = float(delta_e_2000(cluster_lab[left], cluster_lab[right]))
         if difference < merge_thresh:
             heapq.heappush(heap, (difference, left, right))
@@ -203,10 +291,16 @@ def _merge_labels(
         )
         if difference >= merge_thresh:
             continue
-        if difference > stale_difference + 1e-9:
+        if abs(difference - stale_difference) > 1e-9:
             heapq.heappush(heap, (difference, root_left, root_right))
             continue
 
+        merged_neighbors = {
+            union_find.find(neighbor)
+            for neighbor in neighbors[root_left] | neighbors[root_right]
+        }
+        merged_neighbors.discard(root_left)
+        merged_neighbors.discard(root_right)
         area_left = max(cluster_area[root_left], 1.0)
         area_right = max(cluster_area[root_right], 1.0)
         merged_lab = (
@@ -217,6 +311,28 @@ def _merge_labels(
         root = union_find.find(root_left)
         cluster_lab[root] = merged_lab
         cluster_area[root] = area_left + area_right
+        neighbors[root] = merged_neighbors
+        retired_root = root_right if root == root_left else root_left
+        neighbors[retired_root] = set()
+
+        # 처음에는 threshold 밖이던 B-C 경계도 A-B 합병으로 대표색이
+        # 바뀌면 새로 threshold 안에 들어올 수 있다. 합병된 덩어리의 모든
+        # 현재 이웃을 다시 계산해 그런 경계를 빠뜨리지 않는다.
+        for neighbor in sorted(merged_neighbors):
+            neighbor_root = union_find.find(neighbor)
+            if neighbor_root == root:
+                continue
+            neighbors[neighbor_root].discard(root_left)
+            neighbors[neighbor_root].discard(root_right)
+            neighbors[neighbor_root].add(root)
+            new_difference = float(
+                delta_e_2000(cluster_lab[root], cluster_lab[neighbor_root])
+            )
+            if new_difference < merge_thresh:
+                left_key, right_key = sorted((root, neighbor_root))
+                heapq.heappush(
+                    heap, (new_difference, left_key, right_key)
+                )
 
     roots = np.asarray(
         [union_find.find(index) for index in range(len(colors))]

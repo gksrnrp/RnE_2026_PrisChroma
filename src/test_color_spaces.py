@@ -1,7 +1,9 @@
 import unittest
 
 from color_spaces import (
+    is_lab_in_srgb_gamut,
     is_oklab_in_srgb_gamut,
+    lab_to_srgb,
     oklab_to_srgb,
     srgb_to_lab,
     srgb_to_oklab,
@@ -27,6 +29,19 @@ class ColorSpaceTests(unittest.TestCase):
                 restored = oklab_to_srgb(srgb_to_oklab(rgb))
                 for actual, expected in zip(restored, rgb):
                     self.assertAlmostEqual(actual, expected, places=3)
+
+    def test_cielab_round_trip(self) -> None:
+        for rgb in ((0, 0, 0), (255, 255, 255), (12, 127, 241), (192, 32, 32)):
+            with self.subTest(rgb=rgb):
+                restored = lab_to_srgb(srgb_to_lab(rgb))
+                for actual, expected in zip(restored, rgb):
+                    self.assertAlmostEqual(actual, expected, places=3)
+
+    def test_cielab_inverse_rejects_out_of_gamut_without_clipping(self) -> None:
+        outside = (50.0, 200.0, 200.0)
+        self.assertFalse(is_lab_in_srgb_gamut(outside))
+        with self.assertRaisesRegex(ValueError, "gamut"):
+            lab_to_srgb(outside)
 
     def test_gamut_check(self) -> None:
         self.assertTrue(is_oklab_in_srgb_gamut(srgb_to_oklab((30, 120, 240))))

@@ -103,6 +103,78 @@ def srgb_to_lab(rgb: Sequence[int | float]) -> Color3:
     return 116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz)
 
 
+def lab_to_xyz(lab: Sequence[int | float]) -> Color3:
+    """D65 CIELAB을 CIE XYZ(0~1 스케일)로 역변환한다."""
+    if isinstance(lab, (str, bytes)) or len(lab) != 3:
+        raise ValueError("lab에는 L*, a*, b* 값이 정확히 3개 있어야 합니다.")
+    lightness, a, b = (float(value) for value in lab)
+    if not all(math.isfinite(value) for value in (lightness, a, b)):
+        raise ValueError("CIELAB 값은 유한한 숫자여야 합니다.")
+
+    fy = (lightness + 16.0) / 116.0
+    fx = fy + a / 500.0
+    fz = fy - b / 200.0
+    delta = 6.0 / 29.0
+
+    def inverse_f(value: float) -> float:
+        if value > delta:
+            return value**3
+        return 3.0 * delta**2 * (value - 4.0 / 29.0)
+
+    return (
+        0.95047 * inverse_f(fx),
+        inverse_f(fy),
+        1.08883 * inverse_f(fz),
+    )
+
+
+def xyz_to_linear_rgb(xyz: Sequence[int | float]) -> Color3:
+    """D65 CIE XYZ(0~1 스케일)를 선형 sRGB로 변환한다.
+
+    이 함수는 색역 밖 값을 자르지 않는다. 따라서 반환 채널이 0~1 밖이면
+    해당 XYZ 좌표는 sRGB 색역 밖에 있는 것이다.
+    """
+    if isinstance(xyz, (str, bytes)) or len(xyz) != 3:
+        raise ValueError("xyz에는 X, Y, Z 값이 정확히 3개 있어야 합니다.")
+    x, y, z = (float(value) for value in xyz)
+    if not all(math.isfinite(value) for value in (x, y, z)):
+        raise ValueError("XYZ 값은 유한한 숫자여야 합니다.")
+    return (
+        3.2404542 * x - 1.5371385 * y - 0.4985314 * z,
+        -0.9692660 * x + 1.8760108 * y + 0.0415560 * z,
+        0.0556434 * x - 0.2040259 * y + 1.0572252 * z,
+    )
+
+
+def lab_to_linear_rgb(lab: Sequence[int | float]) -> Color3:
+    """D65 CIELAB을 clipping하지 않은 선형 sRGB로 변환한다."""
+    return xyz_to_linear_rgb(lab_to_xyz(lab))
+
+
+def is_lab_in_srgb_gamut(
+    lab: Sequence[int | float], *, tolerance: float = 1e-6
+) -> bool:
+    """D65 CIELAB 좌표를 clipping 없이 sRGB로 표시할 수 있는지 확인한다."""
+    if tolerance < 0.0 or not math.isfinite(tolerance):
+        raise ValueError("tolerance는 0 이상의 유한한 숫자여야 합니다.")
+    return all(
+        -tolerance <= channel <= 1.0 + tolerance
+        for channel in lab_to_linear_rgb(lab)
+    )
+
+
+def lab_to_srgb(lab: Sequence[int | float]) -> RGB:
+    """D65 CIELAB을 0~255 sRGB로 역변환한다.
+
+    색역 밖 좌표는 clipping하지 않고 ``ValueError``로 알린다. 경계에서
+    생기는 1e-7 수준의 행렬 왕복 오차만 허용한다.
+    """
+    linear = lab_to_linear_rgb(lab)
+    if not all(-1e-6 <= channel <= 1.0 + 1e-6 for channel in linear):
+        raise ValueError("해당 CIELAB 색은 sRGB gamut 밖에 있습니다.")
+    return linear_rgb_to_srgb(linear, clip=True)
+
+
 def srgb_to_oklab(rgb: Sequence[int | float]) -> Color3:
     """sRGB를 OKLab으로 변환한다."""
     red, green, blue = srgb_to_linear_rgb(rgb)
@@ -169,7 +241,11 @@ def oklab_to_srgb(
 
 
 __all__ = [
+    "is_lab_in_srgb_gamut",
     "is_oklab_in_srgb_gamut",
+    "lab_to_linear_rgb",
+    "lab_to_srgb",
+    "lab_to_xyz",
     "linear_channel_to_srgb",
     "linear_rgb_to_srgb",
     "oklab_to_linear_rgb",
@@ -180,4 +256,5 @@ __all__ = [
     "srgb_to_oklab",
     "srgb_to_xyz",
     "validate_rgb",
+    "xyz_to_linear_rgb",
 ]
