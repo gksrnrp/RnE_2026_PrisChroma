@@ -4,10 +4,11 @@
 
 ## 1. 검증 범위와 결론
 
-이 기록은 이 문서를 포함하는 변경 묶음의 `src/`, `schemas/`, 계약 예제와 합성
-산출물을 대상으로 한다. 기준 Git commit은
-`b16586211e28ee3e10feba2d40cf036128343c29`였고, 최종 commit·push는 사용자의
-대규모 main 변경 승인 뒤 별도로 기록한다.
+이 기록은 `src/`, `schemas/`, 계약 예제와 합성 산출물을 대상으로 한다. 검증한
+구현은 로컬 브랜치 `codex/finalize-c80-research`의 commit
+`e12276152cd5bcf8302477798e6499b8936b72f0`이다. 기준 main은
+`b16586211e28ee3e10feba2d40cf036128343c29`였으며, GitHub push와 main 병합은
+별도 명시적 승인이 필요하다.
 
 결론은 다음 두 문장을 반드시 함께 읽어야 한다.
 
@@ -79,7 +80,8 @@ Aggregate C80 절대상대오차는 다음과 같다.
 
 ## 5. 사람 연구 준비도
 
-`research_readiness.py --format markdown`의 커밋 전 결과는 통과 5, 차단 9였다.
+`research_readiness.py --format markdown`의 로컬 commit 후 결과는 통과 6,
+차단 8이었다.
 차단은 프로그램 실패가 아니라 없는 실제 자료를 결과로 꾸미지 못하게 하는
 정상 상태다.
 
@@ -88,7 +90,8 @@ Aggregate C80 절대상대오차는 다음과 같다.
 - 합성 계약 표지
 - 엄격한 사람 1.0 계약 스키마
 - C80 심리측정 구현과 검사
-- 기록 가능한 기준 Git commit
+- 재현 가능한 구현 commit
+- 변경 없는 깨끗한 작업 폴더
 - 핵심 문서의 연구 정체성 일치
 
 현재 필수 차단:
@@ -99,7 +102,6 @@ Aggregate C80 절대상대오차는 다음과 같다.
 - 동결 validation plan 및 plan-bound recovery 없음
 - validation 64회×3블록 자료와 사람 검토 확정 없음
 - 최종 `participant_thresholds` 없음
-- 이 기록 당시 변경 묶음이 아직 commit되지 않음
 
 출처가 불완전한 지도 입력과 과거 지도표도 선택적 응용 근거로 사용할 수 없게
 차단되어 있다. 이 항목은 주 4AFC 사람 실험의 필수 입력은 아니다.
