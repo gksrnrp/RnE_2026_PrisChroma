@@ -80,9 +80,9 @@
         "comparison_resolved",
         "free_w_preferred",
         "interpretation",
-        "d288_beta_interpretation_eligible",
-        "d288_beta_interpretation_reason",
-        "primary_c96_vs_b96_affected"
+        "d384_beta_interpretation_eligible",
+        "d384_beta_interpretation_reason",
+        "primary_c192_vs_b192_affected"
       ],
       "properties": {
         "criterion": {"const": "AIC"},
@@ -102,16 +102,16 @@
             "unresolved_numerical_convergence"
           ]
         },
-        "d288_beta_interpretation_eligible": {"type": "boolean"},
-        "d288_beta_interpretation_reason": {
+        "d384_beta_interpretation_eligible": {"type": "boolean"},
+        "d384_beta_interpretation_reason": {
           "enum": [
-            "shared_w_retained_and_d288_numerically_complete",
+            "shared_w_retained_and_d384_numerically_complete",
             "shared_free_w_comparison_unresolved",
             "free_w_lower_aic",
-            "d288_numerically_incomplete"
+            "d384_numerically_incomplete"
           ]
         },
-        "primary_c96_vs_b96_affected": {"const": false}
+        "primary_c192_vs_b192_affected": {"const": false}
       }
     },
     "participant": {
@@ -285,7 +285,7 @@
         "bootstrap_pairing_id"
       ],
       "properties": {
-        "model": {"enum": ["B96", "B288", "C96", "D288"]},
+        "model": {"enum": ["B192", "B384", "C192", "D384"]},
         "stroke_width_px": {"type": "integer", "minimum": 1},
         "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
         "c80_sim": {"type": "number", "exclusiveMinimum": 0},
@@ -400,8 +400,8 @@
         "resolution_check": {"type": "boolean"},
         "primary_outcome": {
           "enum": [
-            "C96_lower_error",
-            "B96_lower_error",
+            "C192_lower_error",
+            "B192_lower_error",
             "equal_within_tolerance",
             "model_indistinguishable",
             "validation_unstable",
@@ -482,7 +482,7 @@
       ],
       "properties": {
         "definition": {
-          "const": "abs(C96_prediction-observed)-abs(B96_prediction-observed)"
+          "const": "abs(C192_prediction-observed)-abs(B192_prediction-observed)"
         },
         "point_estimate": {"type": ["number", "null"]},
         "ci_low": {"type": ["number", "null"]},
@@ -497,8 +497,8 @@
         "validation_observation_uncertainty_included": {"type": "boolean"},
         "status": {
           "enum": [
-            "resolved_C96_lower_error",
-            "resolved_B96_lower_error",
+            "resolved_C192_lower_error",
+            "resolved_B192_lower_error",
             "equivalent_within_tolerance",
             "indeterminate",
             "unresolvable"
@@ -548,7 +548,7 @@
         },
         {
           "if": {
-            "properties": {"status": {"const": "resolved_C96_lower_error"}},
+            "properties": {"status": {"const": "resolved_C192_lower_error"}},
             "required": ["status"]
           },
           "then": {
@@ -557,7 +557,7 @@
         },
         {
           "if": {
-            "properties": {"status": {"const": "resolved_B96_lower_error"}},
+            "properties": {"status": {"const": "resolved_B192_lower_error"}},
             "required": ["status"]
           },
           "then": {
@@ -583,10 +583,10 @@
       "additionalProperties": false,
       "required": ["first_model", "first_prediction", "first_abs_error", "second_model", "second_prediction", "second_abs_error"],
       "properties": {
-        "first_model": {"enum": ["B96", "D288"]},
+        "first_model": {"enum": ["B192", "D384"]},
         "first_prediction": {"type": "number", "exclusiveMinimum": 0},
         "first_abs_error": {"type": ["number", "null"], "minimum": 0},
-        "second_model": {"enum": ["C96", "B288"]},
+        "second_model": {"enum": ["C192", "B384"]},
         "second_prediction": {"type": "number", "exclusiveMinimum": 0},
         "second_abs_error": {"type": ["number", "null"], "minimum": 0}
       }

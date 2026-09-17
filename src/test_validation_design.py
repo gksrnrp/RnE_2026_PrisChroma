@@ -76,9 +76,9 @@ def _model(
     bootstrap_replicates: int = 200,
     training_range_checks: list[dict] | None = None,
 ) -> dict:
-    if name in {"B96", "B288"}:
+    if name in {"B192", "B384"}:
         parameters = {"c80": 2.0, "w": 0.34}
-    elif name == "C96":
+    elif name == "C192":
         parameters = {"c80_ref": 2.0, "w": 0.36}
     else:
         parameters = {"c80_ref": 2.0, "beta": -0.35, "w": 0.35}
@@ -90,13 +90,13 @@ def _model(
     if "beta" in parameters:
         intervals.append({"parameter": "beta", "ci_low": -0.5, "ci_high": -0.2})
     pairing_id = (
-        "B96-C96-reference-width-parametric-v1"
-        if name in {"B96", "C96"}
+        "B192-C192-reference-width-parametric-v1"
+        if name in {"B192", "C192"}
         else None
     )
     return {
         "model": name,
-        "training_trial_count": 96 if name in {"B96", "C96"} else 288,
+        "training_trial_count": 192 if name in {"B192", "C192"} else 384,
         "fit": {
             "parameters": parameters,
             "fixed_lapse": 0.02,
@@ -156,17 +156,17 @@ def _calibration(
         else [(4, 0.08), (12, 0.24)]
     )
     candidate_c80 = {
-        "B96": (2.0, 2.0),
-        "B288": (2.3, 2.3),
-        "C96": (3.4, 2.15),
-        "D288": (3.1, 1.7),
+        "B192": (2.0, 2.0),
+        "B384": (2.3, 2.3),
+        "C192": (3.4, 2.15),
+        "D384": (3.1, 1.7),
     }
     predictions = {
         name: [
             (width_px, width_deg, candidate_c80[name][index])
             for index, (width_px, width_deg) in enumerate(candidate_widths)
         ]
-        for name in ("B96", "B288", "C96", "D288")
+        for name in ("B192", "B384", "C192", "D384")
     }
     reference_width_px, reference_width_deg = calibration_widths[1]
     presented_levels = (
@@ -180,14 +180,14 @@ def _calibration(
     def range_checks(name: str) -> list[dict]:
         widths = (
             [(reference_width_px, reference_width_deg)]
-            if name in {"B96", "C96"}
+            if name in {"B192", "C192"}
             else calibration_widths
         )
         rows: list[dict] = []
         for _width_px, width_deg in widths:
-            if name in {"B96", "B288"}:
+            if name in {"B192", "B384"}:
                 c80 = 2.0
-            elif name == "C96":
+            elif name == "C192":
                 c80 = 2.0
             else:
                 c80 = 2.0 * (width_deg / reference_width_deg) ** -0.35
@@ -235,11 +235,13 @@ def _calibration(
             "git_commit": "a" * 40,
             "stimulus_family_id": color_design.get("stimulus_family_id", "synthetic-family"),
             "renderer_id": line.get("renderer", "synthetic-renderer"),
-            "total_record_count": 288,
+            "total_record_count": 384,
         },
         "analysis_specification": {
-            "models": ["B96", "B288", "C96", "D288"],
+            "models": ["B192", "B384", "C192", "D384"],
             "reference_width_policy": "middle_of_three_sorted_calibration_widths",
+            "calibration_trials_per_width": [96, 192, 96],
+            "session_block_count": 4,
             "confidence": 0.95,
             "bootstrap_replicates": bootstrap_replicates,
             "minimum_bootstrap_convergence_rate": 0.9,
@@ -259,23 +261,23 @@ def _calibration(
                 "lapse_source": profile.get("lapse_source", "synthetic source"),
                 "lapse_session_id": profile.get("lapse_session_id", "S_LAPSE_SYNTH"),
                 "calibration": {
-                    "completed_trial_count": 288,
+                    "completed_trial_count": 384,
                     "aborted_trial_count": 0,
                     "ignored_noncalibration_record_count": 0,
                     "widths": [
                         {
                             "stroke_width_px": width_px,
                             "stroke_width_deg": width_deg,
-                            "completed_trials": 96,
+                            "completed_trials": [96, 192, 96][index],
                         }
-                        for width_px, width_deg in calibration_widths
+                        for index, (width_px, width_deg) in enumerate(calibration_widths)
                     ],
                     "session_block_quality": [
                         {
                             "session_block": block,
                             "session_id": f"CAL-S{block}",
-                            "completed_trials": 72,
-                            "correct_trials": 54,
+                            "completed_trials": 96,
+                            "correct_trials": 72,
                             "accuracy": 0.75,
                         }
                         for block in range(1, 5)
@@ -298,11 +300,11 @@ def _calibration(
                     "comparison_resolved": True,
                     "free_w_preferred": False,
                     "interpretation": "shared_w_retained",
-                    "d288_beta_interpretation_eligible": True,
-                    "d288_beta_interpretation_reason": (
-                        "shared_w_retained_and_d288_numerically_complete"
+                    "d384_beta_interpretation_eligible": True,
+                    "d384_beta_interpretation_reason": (
+                        "shared_w_retained_and_d384_numerically_complete"
                     ),
-                    "primary_c96_vs_b96_affected": False,
+                    "primary_c192_vs_b192_affected": False,
                 },
                 "analysis_status": "complete",
                 "models": [
@@ -456,7 +458,7 @@ class ValidationPlanTests(unittest.TestCase):
             self.assertEqual(len(first["schedule"]), 192)
             self.assertEqual(
                 sorted(row["trial_id"] for row in first["schedule"]),
-                list(range(289, 481)),
+                list(range(385, 577)),
             )
             self.assertEqual(first["plan_sha256"], compute_plan_sha256(first))
             validate_plan(first)
@@ -474,16 +476,16 @@ class ValidationPlanTests(unittest.TestCase):
             config, calibration_path = _fixture(directory)
             calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
             _set_candidate_prediction(
-                calibration, "B96", 4, c80=1.0, sample_low=0.1, sample_high=10.0
+                calibration, "B192", 4, c80=1.0, sample_low=0.1, sample_high=10.0
             )
             _set_candidate_prediction(
-                calibration, "C96", 4, c80=6.0, sample_low=0.6, sample_high=60.0
+                calibration, "C192", 4, c80=6.0, sample_low=0.6, sample_high=60.0
             )
             _set_candidate_prediction(
-                calibration, "B96", 12, c80=1.0, sample_low=0.9, sample_high=1.1
+                calibration, "B192", 12, c80=1.0, sample_low=0.9, sample_high=1.1
             )
             _set_candidate_prediction(
-                calibration, "C96", 12, c80=2.0, sample_low=1.8, sample_high=2.2
+                calibration, "C192", 12, c80=2.0, sample_low=1.8, sample_high=2.2
             )
             _write_json(calibration_path, calibration)
 
@@ -515,16 +517,16 @@ class ValidationPlanTests(unittest.TestCase):
             config, calibration_path = _fixture(directory)
             calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
             _set_candidate_prediction(
-                calibration, "B96", 4, c80=1.0, sample_low=0.5, sample_high=2.0
+                calibration, "B192", 4, c80=1.0, sample_low=0.5, sample_high=2.0
             )
             _set_candidate_prediction(
-                calibration, "C96", 4, c80=2.0, sample_low=1.0, sample_high=4.0
+                calibration, "C192", 4, c80=2.0, sample_low=1.0, sample_high=4.0
             )
             _set_candidate_prediction(
-                calibration, "B96", 12, c80=1.0, sample_low=0.3, sample_high=2.0
+                calibration, "B192", 12, c80=1.0, sample_low=0.3, sample_high=2.0
             )
             _set_candidate_prediction(
-                calibration, "C96", 12, c80=4.0, sample_low=1.2, sample_high=8.0
+                calibration, "C192", 12, c80=4.0, sample_low=1.2, sample_high=8.0
             )
             _write_json(calibration_path, calibration)
 
@@ -647,7 +649,7 @@ class ValidationPlanTests(unittest.TestCase):
     def test_validation_trial_id_range_cannot_be_rebased(self):
         with tempfile.TemporaryDirectory() as name:
             config, calibration = _fixture(Path(name))
-            with self.assertRaisesRegex(ValidationDesignError, "289"):
+            with self.assertRaisesRegex(ValidationDesignError, "385"):
                 build_validation_plan(
                     config,
                     calibration,
@@ -880,13 +882,13 @@ class ValidationAnalysisTests(unittest.TestCase):
                     "width_slope_sensitivity"
                 ],
             )
-            self.assertEqual(comparison["primary"]["first_model"], "B96")
-            self.assertEqual(comparison["primary"]["second_model"], "C96")
-            self.assertEqual(comparison["secondary"]["first_model"], "D288")
-            self.assertEqual(comparison["secondary"]["second_model"], "B288")
+            self.assertEqual(comparison["primary"]["first_model"], "B192")
+            self.assertEqual(comparison["primary"]["second_model"], "C192")
+            self.assertEqual(comparison["secondary"]["first_model"], "D384")
+            self.assertEqual(comparison["secondary"]["second_model"], "B384")
             self.assertIn(
                 comparison["primary_outcome"],
-                {"B96_lower_error", "C96_lower_error", "equal_within_tolerance", "model_indistinguishable"},
+                {"B192_lower_error", "C192_lower_error", "equal_within_tolerance", "model_indistinguishable"},
             )
             self.assertEqual(
                 comparison["metadata"]["inference_scope"],
@@ -899,8 +901,8 @@ class ValidationAnalysisTests(unittest.TestCase):
             self.assertIn(
                 delta_loss["status"],
                 {
-                    "resolved_B96_lower_error",
-                    "resolved_C96_lower_error",
+                    "resolved_B192_lower_error",
+                    "resolved_C192_lower_error",
                     "equivalent_within_tolerance",
                     "indeterminate",
                 },
@@ -997,22 +999,22 @@ class ValidationAnalysisTests(unittest.TestCase):
         self.assertTrue(result[-1])
 
     def test_primary_point_advantage_is_indeterminate_when_delta_loss_ci_crosses_zero(self):
-        pairing_id = "B96-C96-reference-width-parametric-v1"
+        pairing_id = "B192-C192-reference-width-parametric-v1"
         predictions = [
             {
-                "model": "B96",
+                "model": "B192",
                 "c80_sim": 1.0,
                 "bootstrap_c80_samples": [2.9, 1.0, 2.9, 1.0],
                 "bootstrap_pairing_id": pairing_id,
             },
-            {"model": "B288", "c80_sim": 1.2},
+            {"model": "B384", "c80_sim": 1.2},
             {
-                "model": "C96",
+                "model": "C192",
                 "c80_sim": 2.8,
                 "bootstrap_c80_samples": [1.0, 2.9, 1.0, 2.9],
                 "bootstrap_pairing_id": pairing_id,
             },
-            {"model": "D288", "c80_sim": 2.7},
+            {"model": "D384", "c80_sim": 2.7},
         ]
         validation = {
             "stroke_width_px": 4,
@@ -1040,10 +1042,10 @@ class ValidationAnalysisTests(unittest.TestCase):
 
     def test_missing_paired_prediction_samples_fails_closed(self):
         predictions = [
-            {"model": "B96", "c80_sim": 2.0},
-            {"model": "B288", "c80_sim": 2.2},
-            {"model": "C96", "c80_sim": 2.8},
-            {"model": "D288", "c80_sim": 2.9},
+            {"model": "B192", "c80_sim": 2.0},
+            {"model": "B384", "c80_sim": 2.2},
+            {"model": "C192", "c80_sim": 2.8},
+            {"model": "D384", "c80_sim": 2.9},
         ]
         validation = {
             "stroke_width_px": 4,
@@ -1066,22 +1068,22 @@ class ValidationAnalysisTests(unittest.TestCase):
         )
 
     def test_unresolved_shared_w_sensitivity_makes_primary_inference_indeterminate(self):
-        pairing_id = "B96-C96-reference-width-parametric-v1"
+        pairing_id = "B192-C192-reference-width-parametric-v1"
         predictions = [
             {
-                "model": "B96",
+                "model": "B192",
                 "c80_sim": 1.0,
                 "bootstrap_c80_samples": [0.9, 1.0, 1.1, 1.0],
                 "bootstrap_pairing_id": pairing_id,
             },
-            {"model": "B288", "c80_sim": 1.2},
+            {"model": "B384", "c80_sim": 1.2},
             {
-                "model": "C96",
+                "model": "C192",
                 "c80_sim": 3.0,
                 "bootstrap_c80_samples": [2.9, 3.0, 3.1, 3.0],
                 "bootstrap_pairing_id": pairing_id,
             },
-            {"model": "D288", "c80_sim": 2.9},
+            {"model": "D384", "c80_sim": 2.9},
         ]
         validation = {
             "stroke_width_px": 4,
@@ -1138,23 +1140,23 @@ class ValidationAnalysisTests(unittest.TestCase):
             self.assertEqual(comparison["primary_outcome"], "comparison_unresolvable")
             self.assertEqual(comparison["primary_delta_loss"]["status"], "unresolvable")
 
-    def test_delta_loss_ci_resolves_c96_only_when_entire_interval_is_negative(self):
-        pairing_id = "B96-C96-reference-width-parametric-v1"
+    def test_delta_loss_ci_resolves_c192_only_when_entire_interval_is_negative(self):
+        pairing_id = "B192-C192-reference-width-parametric-v1"
         predictions = [
             {
-                "model": "B96",
+                "model": "B192",
                 "c80_sim": 1.0,
                 "bootstrap_c80_samples": [0.9, 1.0, 1.1, 1.0],
                 "bootstrap_pairing_id": pairing_id,
             },
-            {"model": "B288", "c80_sim": 1.2},
+            {"model": "B384", "c80_sim": 1.2},
             {
-                "model": "C96",
+                "model": "C192",
                 "c80_sim": 3.0,
                 "bootstrap_c80_samples": [2.9, 3.0, 3.1, 3.0],
                 "bootstrap_pairing_id": pairing_id,
             },
-            {"model": "D288", "c80_sim": 2.9},
+            {"model": "D384", "c80_sim": 2.9},
         ]
         validation = {
             "stroke_width_px": 4,
@@ -1169,11 +1171,11 @@ class ValidationAnalysisTests(unittest.TestCase):
             {"comparison_resolved": True, "free_w_preferred": False},
             np.asarray([2.9, 3.0, 3.1, 3.0]),
         )
-        self.assertEqual(comparison["primary_outcome"], "C96_lower_error")
+        self.assertEqual(comparison["primary_outcome"], "C192_lower_error")
         self.assertTrue(comparison["resolution_check"])
         self.assertEqual(
             comparison["primary_delta_loss"]["status"],
-            "resolved_C96_lower_error",
+            "resolved_C192_lower_error",
         )
         self.assertLess(comparison["primary_delta_loss"]["ci_high"], 0)
 

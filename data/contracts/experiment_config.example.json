@@ -62,7 +62,8 @@
       {"width_px": 6, "width_deg": 0.1581601242672588},
       {"width_px": 12, "width_deg": 0.3163196459553995}
     ],
-    "trials_per_width": 96
+    "trials_per_width": [96, 192, 96],
+    "session_block_count": 4
   },
   "validation": {
     "candidates": [
@@ -95,7 +96,7 @@
     "practice_trials": null
   },
   "model_plan": {
-    "models": ["B96", "B288", "C96", "D288"],
+    "models": ["B192", "B384", "C192", "D384"],
     "include_szafir_transfer": true,
     "szafir_probability_coordinate": 0.5
   },

@@ -14,7 +14,7 @@
       "confirmed": false,
       "predictions": [
         {
-          "model": "D288",
+          "model": "D384",
           "stroke_width_px": 3,
           "stroke_width_deg": 0.07908009979498572,
           "c80_sim": 2.8,

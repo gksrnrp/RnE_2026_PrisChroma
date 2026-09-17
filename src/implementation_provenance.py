@@ -25,6 +25,7 @@ CALIBRATION_ANALYSIS_FILES = (
     "schemas/human/experiment_config.schema.json",
     "schemas/human/trial.schema.json",
     "src/analyze_calibration.py",
+    "src/calibration_design.py",
     "src/color_spaces.py",
     "src/data_contracts.py",
     "src/distance.py",

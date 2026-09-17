@@ -6,7 +6,7 @@
 ## 1. 계획 동결
 
 입력은 원 `experiment_config`와 `calibration_model_fits` 두 파일뿐이다.
-`validation_design.py`는 calibration-only B96/C96가 두 후보 굵기에서 예측한
+`validation_design.py`는 calibration-only B192/C192가 두 후보 굵기에서 예측한
 C80 95% CI 사이의 보수적 로그 간격을 먼저 최대화한다. 동률이면 절대 로그 C80
 점추정 비를 최대화하고, 그래도 같으면 더 낮은 px를 고른다. 두 후보의 CI 간격이
 모두 0이면 점추정 비로 한 후보를 동결하지만 plan에
@@ -15,7 +15,7 @@ C80 95% CI 사이의 보수적 로그 간격을 먼저 최대화한다. 동률�
 남긴다. 이는 불확실성을 고려해 사전 정의한 한 굵기에서 검증했다는 뜻이며,
 검증 후에도 두 모형이 구분되지 않을 수 있고 결과를 다른 굵기로 일반화하지 않는다.
 
-선택 후보에서 B96/C96의 C80 95% 구간과 기울기 `w`를 사용한다. 각 모형에 대해
+선택 후보에서 B192/C192의 C80 95% 구간과 기울기 `w`를 사용한다. 각 모형에 대해
 다음 하한·상한을 만들고, 모든 하한의 최솟값과 상한의 최댓값 사이를 8개
 로그 등간격으로 나눈다.
 
@@ -37,8 +37,8 @@ metadata에 계산해 저장한다. 이 범위는 direct-C80 곡선의 목표점
 - 실제 Machado 후 ΔE00가 수준 순서대로 엄격히 증가하지 않음
 
 각 블록은 `8수준 × 정답 위치 4개 × odd 색 정체 A/B = 64회`의 완전 요인
-배치다. 세 블록은 서로 다른 seed로 독립 무작위화하며 trial ID는 교정 288회
-다음인 289부터 480까지 전역 유일하다.
+배치다. 세 블록은 서로 다른 seed로 독립 무작위화하며 trial ID는 교정 384회
+다음인 385부터 576까지 전역 유일하다.
 
 ```powershell
 cd src
@@ -47,7 +47,7 @@ python validation_design.py `
   --calibration-fits ../results/calibration_model_fits.json `
   --output ../data/experiment/validation/validation-plan.json `
   --seed 20260914 `
-  --first-trial-id 289
+  --first-trial-id 385
 ```
 
 `plan_sha256`은 정렬된 compact JSON에서 최상위 `plan_sha256`과 각 schedule의
@@ -101,13 +101,13 @@ bootstrap도 매 복제마다 네 모수를 모두 joint 재적합해 C80/w 95% 
 비교한다. 자유 `w`가 더 낮은 AIC를 보이면 표본 부족 때문에 모형을 바꾸지 않고
 가정 경고와 `shared_w_sensitivity_warning`에 따른 `indeterminate`를 보고한다.
 
-안정적 통합값이 있을 때 주 비교는 같은 96회 자료량의 B96 대 C96이다. 보조
-비교는 D288 대 B288과 C96 대 B288이다.
-각 예측의 절대 오차 `|예측 C80 - 관측 pooled C80|`를 기록한다. 다만 B96와
-C96은 같은 모의 교정 반응으로 짝지은 bootstrap 예측 복제값을 보존한다. 이를
+안정적 통합값이 있을 때 주 비교는 같은 192회 자료량의 B192 대 C192이다. 보조
+비교는 D384 대 B384과 C192 대 B384이다.
+각 예측의 절대 오차 `|예측 C80 - 관측 pooled C80|`를 기록한다. 다만 B192와
+C192은 같은 모의 교정 반응으로 짝지은 bootstrap 예측 복제값을 보존한다. 이를
 held-out joint bootstrap의 pooled C80 복제값과 결합해
-`Δloss=|C96-O|-|B96-O|`의 95% 구간을 계산한다. 구간 전체가 0 아래일 때만
-C96, 0 위일 때만 B96의 오차가 작다고 판정하고 0을 걸치면
+`Δloss=|C192-O|-|B192-O|`의 95% 구간을 계산한다. 구간 전체가 0 아래일 때만
+C192, 0 위일 때만 B192의 오차가 작다고 판정하고 0을 걸치면
 우열을 확인하지 않는다. 구현 결과는 사실상 0인 사전 허용띠 안이면
 `equivalent_within_tolerance`, 그 밖의 경계 중첩이면 `indeterminate`다.
 복제값·pairing 표지가 없으면 점추정으로 대체하지 않고
@@ -143,7 +143,7 @@ participant/config/raw trial/plan/manifest hash를 모두 기록한다. 검토 �
 있었는지**를 기록할 뿐 우월성 결론이나 검증 성공 보장이 아니다. 사전
 `predicted_separability=false`인 후보를 계획대로 검증한 뒤에도 `모델 구분 불가`가
 정상 결과일 수 있다. 실제 검증에서는 블록별 관측
-C80의 불확실성을 포함해 B96/C96 예측 오차를 비교해야 한다. 선택된 한 굵기와
+C80의 불확실성을 포함해 B192/C192 예측 오차를 비교해야 한다. 선택된 한 굵기와
 고정 Lab 중점·방향·표시 조건 밖으로 결과를 일반화하지 않는다.
 
 ## 4. 검증 설계 parameter recovery
@@ -155,7 +155,7 @@ C80의 불확실성을 포함해 B96/C96 예측 오차를 비교해야 한다. �
 
 다음 수치는 **대표 후보 수준으로 분석기만 점검한 개발 recovery**다. 대표 후보
 수준 `[0.60, 0.85, 1.20, 1.70, 2.40, 3.40, 4.80, 6.80]`, lapse
-0.02, 교정 B96/C96 95% 구간을 모사한 true C80 1.76~3.808 및 true `w`
+0.02, 교정 B192/C192 95% 구간을 모사한 true C80 1.76~3.808 및 true `w`
 0.272~0.432에서 200명×3블록, block bootstrap 20회 recovery를 실행했다.
 joint fit 수렴률 100%, bootstrap 수렴률 100%, stable 비율 70.0%, pooled C80
 중앙 상대오차 7.71%, stable 140명에서 95% CI coverage 92.14%였다. 사전 최소

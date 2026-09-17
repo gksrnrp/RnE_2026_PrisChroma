@@ -57,7 +57,7 @@
         "severity": {"type": "number", "minimum": 0, "maximum": 1},
         "severity_source": {"type": "string", "minLength": 1},
         "confirmed": {"const": false},
-        "model": {"enum": ["B96", "B288", "C96", "D288"]},
+        "model": {"enum": ["B192", "B384", "C192", "D384"]},
         "stroke_width_px": {"type": "integer", "minimum": 1},
         "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
         "c80_sim": {"type": "number", "minimum": 0},

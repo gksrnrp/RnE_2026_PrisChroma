@@ -5,10 +5,10 @@ import numpy as np
 
 from psychometrics import (
     direct_c80_probability,
-    fit_b96,
-    fit_b288,
-    fit_c96,
-    fit_d288,
+    fit_b192,
+    fit_b384,
+    fit_c192,
+    fit_d384,
     parametric_bootstrap,
 )
 
@@ -61,27 +61,27 @@ class DirectC80ProbabilityTests(unittest.TestCase):
 
 
 class MaximumLikelihoodModelTests(unittest.TestCase):
-    def test_b96_and_b288_recover_a_constant_c80(self) -> None:
+    def test_b192_and_b384_recover_a_constant_c80(self) -> None:
         x, answers, widths = deterministic_trials(
             lambda _width: 2.4, w=0.32, repeats=50
         )
-        b96 = fit_b96(x, answers, widths, reference_width=8.0, lapse=0.02)
-        b288 = fit_b288(x, answers, widths, lapse=0.02)
-        self.assertTrue(b96.converged)
-        self.assertTrue(b288.converged)
-        self.assertEqual(b96.n_trials, 550)
-        self.assertEqual(b288.n_trials, 1650)
-        self.assertAlmostEqual(b96.parameters["c80"], 2.4, delta=0.08)
-        self.assertAlmostEqual(b288.parameters["c80"], 2.4, delta=0.08)
-        self.assertAlmostEqual(b288.parameters["w"], 0.32, delta=0.05)
+        b192 = fit_b192(x, answers, widths, reference_width=8.0, lapse=0.02)
+        b384 = fit_b384(x, answers, widths, lapse=0.02)
+        self.assertTrue(b192.converged)
+        self.assertTrue(b384.converged)
+        self.assertEqual(b192.n_trials, 550)
+        self.assertEqual(b384.n_trials, 1650)
+        self.assertAlmostEqual(b192.parameters["c80"], 2.4, delta=0.08)
+        self.assertAlmostEqual(b384.parameters["c80"], 2.4, delta=0.08)
+        self.assertAlmostEqual(b384.parameters["w"], 0.32, delta=0.05)
 
-    def test_c96_uses_reference_data_and_relative_scale(self) -> None:
+    def test_c192_uses_reference_data_and_relative_scale(self) -> None:
         reference = 8.0
         scale = lambda width: (width / reference) ** -0.40
         x, answers, widths = deterministic_trials(
             lambda width: 2.2 * scale(width), w=0.30, repeats=50
         )
-        fit = fit_c96(
+        fit = fit_c192(
             x,
             answers,
             widths,
@@ -94,28 +94,28 @@ class MaximumLikelihoodModelTests(unittest.TestCase):
         self.assertAlmostEqual(fit.parameters["c80_ref"], 2.2, delta=0.08)
         self.assertAlmostEqual(fit.c80(2.0) / fit.c80(8.0), scale(2.0), places=12)
 
-    def test_d288_recovers_negative_beta_without_forcing_it(self) -> None:
+    def test_d384_recovers_negative_beta_without_forcing_it(self) -> None:
         reference = 8.0
         x, answers, widths = deterministic_trials(
             lambda width: 2.6 * (width / reference) ** -0.55,
             w=0.34,
             repeats=50,
         )
-        fit = fit_d288(
+        fit = fit_d384(
             x, answers, widths, reference_width=reference, lapse=0.02
         )
         self.assertTrue(fit.converged)
         self.assertAlmostEqual(fit.parameters["c80_ref"], 2.6, delta=0.10)
         self.assertAlmostEqual(fit.parameters["beta"], -0.55, delta=0.08)
 
-    def test_d288_can_return_positive_beta(self) -> None:
+    def test_d384_can_return_positive_beta(self) -> None:
         reference = 8.0
         x, answers, widths = deterministic_trials(
             lambda width: 2.1 * (width / reference) ** 0.48,
             w=0.33,
             repeats=50,
         )
-        fit = fit_d288(
+        fit = fit_d384(
             x, answers, widths, reference_width=reference, lapse=0.02
         )
         self.assertTrue(fit.converged)
@@ -124,11 +124,11 @@ class MaximumLikelihoodModelTests(unittest.TestCase):
 
     def test_trial_shape_and_reference_validation(self) -> None:
         with self.assertRaises(ValueError):
-            fit_b288([1.0, 2.0], [1], [8.0, 8.0])
+            fit_b384([1.0, 2.0], [1], [8.0, 8.0])
         with self.assertRaises(ValueError):
-            fit_b96([1.0], [1], [8.0], reference_width=4.0)
+            fit_b192([1.0], [1], [8.0], reference_width=4.0)
         with self.assertRaises(ValueError):
-            fit_c96(
+            fit_c192(
                 [1.0],
                 [1],
                 [8.0],
@@ -142,7 +142,7 @@ class BootstrapTests(unittest.TestCase):
         x, answers, widths = deterministic_trials(
             lambda _width: 2.3, w=0.31, repeats=15
         )
-        fit = fit_b288(x, answers, widths, lapse=0.02)
+        fit = fit_b384(x, answers, widths, lapse=0.02)
         first = parametric_bootstrap(
             fit, x, answers, widths, replicates=8, seed=12345
         )

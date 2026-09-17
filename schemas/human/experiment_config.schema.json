@@ -240,7 +240,7 @@
     "calibration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["widths", "trials_per_width"],
+      "required": ["widths", "trials_per_width", "session_block_count"],
       "properties": {
         "widths": {
           "type": "array",
@@ -249,7 +249,11 @@
           "uniqueItems": true,
           "items": {"$ref": "#/$defs/rendered_width"}
         },
-        "trials_per_width": {"const": 96}
+        "trials_per_width": {
+          "const": [96, 192, 96],
+          "description": "Counts correspond to widths in ascending order."
+        },
+        "session_block_count": {"enum": [4, 6]}
       }
     },
     "validation": {
@@ -301,7 +305,7 @@
           "uniqueItems": true,
           "items": {"type": "number", "exclusiveMinimum": 0}
         },
-        "randomization": {"const": "balanced-4-session-blocks-within-block-shuffle"},
+        "randomization": {"const": "balanced-mixed-width-session-blocks-within-block-shuffle"},
         "practice_trials": {"type": "integer", "minimum": 0}
       }
     },
@@ -314,7 +318,7 @@
         "szafir_probability_coordinate"
       ],
       "properties": {
-        "models": {"const": ["B96", "B288", "C96", "D288"]},
+        "models": {"const": ["B192", "B384", "C192", "D384"]},
         "include_szafir_transfer": {"type": "boolean"},
         "szafir_probability_coordinate": {
           "type": "number",
@@ -374,12 +378,13 @@
             "calibration": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["1", "2", "3", "4"],
               "properties": {
                 "1": {"$ref": "#/$defs/session_id"},
                 "2": {"$ref": "#/$defs/session_id"},
                 "3": {"$ref": "#/$defs/session_id"},
-                "4": {"$ref": "#/$defs/session_id"}
+                "4": {"$ref": "#/$defs/session_id"},
+                "5": {"$ref": "#/$defs/session_id"},
+                "6": {"$ref": "#/$defs/session_id"}
               }
             },
             "validation": {
@@ -454,6 +459,62 @@
       },
       "then": {
         "properties": {"human_data_collection_allowed": {"const": false}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "calibration": {
+            "properties": {"session_block_count": {"const": 4}},
+            "required": ["session_block_count"]
+          }
+        },
+        "required": ["calibration"]
+      },
+      "then": {
+        "properties": {
+          "journal": {
+            "properties": {
+              "session_ids": {
+                "properties": {
+                  "calibration": {
+                    "required": ["1", "2", "3", "4"],
+                    "minProperties": 4,
+                    "maxProperties": 4
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "calibration": {
+            "properties": {"session_block_count": {"const": 6}},
+            "required": ["session_block_count"]
+          }
+        },
+        "required": ["calibration"]
+      },
+      "then": {
+        "properties": {
+          "journal": {
+            "properties": {
+              "session_ids": {
+                "properties": {
+                  "calibration": {
+                    "required": ["1", "2", "3", "4", "5", "6"],
+                    "minProperties": 6,
+                    "maxProperties": 6
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   ],

@@ -1,7 +1,7 @@
 # 이창민 최종 실행서
 
 이 문서는 현재 코드와 [사전 고정 프로토콜](experiment-protocol.md)을 기준으로,
-이창민이 **준비 확인 → 교정 288회 → 검증 64회×3 → C80 분석 → 동일경로 보정**을
+이창민이 **준비 확인 → 교정 384회 → 검증 64회×3 → C80 분석 → 동일경로 보정**을
 순서대로 실행하는 인계 문서다. 명령은 저장소의 `src/` 폴더에서 실행한다.
 
 현재는 소프트웨어·합성 검증 단계다. 실제 장치값, 참가자별 1.0 config, 동의와
@@ -11,7 +11,7 @@
 ## 1. 연구에서 이창민이 맡는 범위
 
 1. 동결 config·시행표·PNG 매니페스트가 서로 같은지 검사한다.
-2. 교정 288회 응답을 B96/B288/C96/D288로 적합한다.
+2. 교정 384회 응답을 B192/B384/C192/D384로 적합한다.
 3. 응답을 보지 않은 held-out 검증 계획과 192개 PNG를 만든다.
 4. calibration과 분리해 서로 다른 세션·seed로 실시한 64회 반복 블록 세 개에서
    C80 세 개와 공통 `w`를 joint 적합하고, 안정할 때만
@@ -70,9 +70,15 @@
 }
 ```
 
+`calibration.session_block_count`는 4 또는 6만 허용한다. 4이면 위처럼 교정
+session ID 4개를, 6이면 `5`, `6`까지 총 6개를 넣어야 한다. 최종 선택은 같은
+장치에서 비연구 pilot으로 64회와 96회의 소요시간·피로도를 확인한 뒤 사람
+응답 전에 동결한다. 선택 뒤 config hash가 바뀌므로 config-bound recovery와
+자극 컴파일을 최종 config로 다시 실행한다.
+
 현재 구현은 외부 보안 root를 허용하지 않는다. `--journal`은 config의 해당
 phase 파일과 정확히 같아야 하며, 파일명이나 경로를 바꿔 새 이력을 시작할 수
-없다. 세션 ID 여덟 개도 모두 달라야 하고 severity/lapse 세션과 겹치면 안 된다.
+없다. 모든 session ID도 서로 달라야 하고 severity/lapse 세션과 겹치면 안 된다.
 
 ## 3. 두 참가자 운영 원칙
 
@@ -153,14 +159,14 @@ python parameter_recovery.py --experiment-config ../data/experiment/private/expe
 ```
 
 동결 12수준에서 유도한 low/central/high profile 각각의 수렴률·중앙오차·90백분위
-오차, 대표 네 모형 bootstrap의 알려진 C80/beta CI 포함, 같은 96회를 쓰는
-B96/C96 paired-bootstrap 동일성을 모두 확인한다. simulation과 bootstrap이
+오차, 대표 네 모형 bootstrap의 알려진 C80/beta CI 포함, 같은 192회를 쓰는
+B192/C192 paired-bootstrap 동일성을 모두 확인한다. simulation과 bootstrap이
 각각 200회 미만이면 수치가 좋아도 `passed=false`다. 실패하면 사람에게 보여주지
 말고 수준·시행 설계를 다시 검토한다.
 
 ## 7. 3단계 — 교정 시행표·PNG·연습 PNG 만들기
 
-현재 commit을 시행표에 넣고, 교정 288회와 연습 자극을 컴파일한다. 매니페스트와
+현재 commit을 시행표에 넣고, 교정 384회와 연습 자극을 컴파일한다. 매니페스트와
 PNG를 같은 디렉터리에 두면 매니페스트의 상대 경로가 안전하게 유지된다.
 
 ```powershell
@@ -193,21 +199,24 @@ python response_gui.py --config ../data/experiment/private/experiment_config.jso
 python response_gui.py --config ../data/experiment/private/experiment_config.json --manifest ../data/experiment/practice/practice-manifest.json --phase practice --calibration-manifest ../data/experiment/calibration/calibration-manifest.json --journal ../data/experiment/raw/P01-practice.jsonl --session-id P01-PRACTICE-01 --run-gui --confirm-consent
 ```
 
-위치·키 입력·색역·중단·저장을 확인한다. 연습 중단만 재시도할 수 있다. 연습 반응은 교정 288회나 분석에
+위치·키 입력·색역·중단·저장을 확인한다. 연습 중단만 재시도할 수 있다. 연습 반응은 교정 384회나 분석에
 합치지 않는다.
 
-## 9. 5단계 — 교정 72회×4세션
+## 9. 5단계 — 교정 96회×4세션 또는 64회×6세션
 
-서로 다른 날짜에 config에 미리 동결한 session code로 block 1~4를 각각
+서로 다른 날짜에 config에 미리 동결한 session code로 모든 block을 각각
 실행한다. 같은 canonical journal에 완료·중단 시도가 모두 append-only로 남고,
 완료 또는 aborted 본 시행은 terminal이라 중복·재제시가 거부된다. aborted
 practice만 같은 canonical practice journal에서 재시도할 수 있다.
 
 ```powershell
-python response_gui.py --config ../data/experiment/private/experiment_config.json --manifest ../data/experiment/calibration/calibration-manifest.json --phase calibration --session-block 1 --journal ../data/experiment/raw/P01-calibration.jsonl --session-id P01-CAL-01 --run-gui --confirm-consent
-python response_gui.py --config ../data/experiment/private/experiment_config.json --manifest ../data/experiment/calibration/calibration-manifest.json --phase calibration --session-block 2 --journal ../data/experiment/raw/P01-calibration.jsonl --session-id P01-CAL-02 --run-gui --confirm-consent
-python response_gui.py --config ../data/experiment/private/experiment_config.json --manifest ../data/experiment/calibration/calibration-manifest.json --phase calibration --session-block 3 --journal ../data/experiment/raw/P01-calibration.jsonl --session-id P01-CAL-03 --run-gui --confirm-consent
-python response_gui.py --config ../data/experiment/private/experiment_config.json --manifest ../data/experiment/calibration/calibration-manifest.json --phase calibration --session-block 4 --journal ../data/experiment/raw/P01-calibration.jsonl --session-id P01-CAL-04 --run-gui --confirm-consent
+$cfg = Get-Content ../data/experiment/private/experiment_config.json -Raw | ConvertFrom-Json
+1..$cfg.calibration.session_block_count | ForEach-Object {
+  $block = $_
+  $sessionId = $cfg.journal.session_ids.calibration."$block"
+  python response_gui.py --config ../data/experiment/private/experiment_config.json --manifest ../data/experiment/calibration/calibration-manifest.json --phase calibration --session-block $block --journal ../data/experiment/raw/P01-calibration.jsonl --session-id $sessionId --run-gui --confirm-consent
+  if ($LASTEXITCODE -ne 0) { throw "calibration block $block failed" }
+}
 ```
 
 교정 활성 자극 중 Esc/중단이 한 번이라도 기록되면 재개·재시도하지 않는다.
@@ -216,7 +225,7 @@ python response_gui.py --config ../data/experiment/private/experiment_config.jso
 합치지 않고 참가자 자료를 무효화한다. 두 규칙은 config의
 `active_trial_abort_policy`와 `incomplete_block_time_limit_policy`에 사전 고정된다.
 
-## 10. 6단계 — 교정 288회 분석
+## 10. 6단계 — 교정 384회 분석
 
 사람 분석에서는 `--calibration-manifest`가 필수다. JSONL만 받은 상태에서는
 분석하지 않는다.
@@ -225,36 +234,36 @@ python response_gui.py --config ../data/experiment/private/experiment_config.jso
 python analyze_calibration.py --config ../data/experiment/private/experiment_config.json --trials ../data/experiment/raw/P01-calibration.jsonl --calibration-manifest ../data/experiment/calibration/calibration-manifest.json --bootstrap-replicates 1000 --bootstrap-seed 20260914 --output ../results/calibration_model_fits.json
 ```
 
-출력은 교정 전용 중간 산출물이다. B96/C96은 중앙 굵기의 같은 96회, B288/D288은
-전체 288회를 사용했는지, 네 block 균형과 bootstrap 수렴을 확인한다. B96/C96은
+출력은 교정 전용 중간 산출물이다. B192/C192은 중앙 굵기의 같은 192회, B384/D384은
+전체 384회를 사용했는지, 동결한 4개 또는 6개 block 균형과 bootstrap 수렴을 확인한다. B192/C192은
 같은 모의 반응 난수열로 paired bootstrap하고 선택 후보별 C80 복제값을 보존한다. 아직
 held-out 관측 C80이 없으므로 이 파일만으로 모델 승패나 사람 역치를 확정하지
 않는다.
 각 훈련 굵기에서 C80 점추정과 95% CI 전체가 실제 제시 ΔE00 범위 안에 있는지도
 확인한다. 하나라도 범위 밖이면 수준 범위가 역치를 식별하지 못한 것이므로 다음
 단계로 가지 않는다. 교정 block별 정답률 drift는 별도 자동모형이 없는 한계로
-`calibration.session_block_quality`의 session ID·완료 72회·정답 수·정답률로
+`calibration.session_block_quality`의 session ID·완료 96회 또는 64회·정답 수·정답률로
 기술한다. 이 값은 학습·피로 가능성을 투명하게 보이는 기술통계일 뿐, 사후
 제외 기준이나 유의성 검정으로 쓰거나 결론을 구제하는 데 쓰지 않는다.
 
 `width_slope_sensitivity`에서 굵기별 C80+공통 `w`(`k=4`)와 굵기별 자유
 C80+`w`(`k=6`)의 AIC·수렴 상태를 확인한다. `comparison_resolved=false`이거나
-`free_w_preferred=true`이면 `d288_beta_interpretation_eligible=false`여야 하며,
-D288의 beta·굵기효과 보조 결론은 내리지 않는다. 이는 C96 대 B96 주 비교에는
-영향을 주지 않고, D288 예측 C80으로 계산 보정을 실행하는 것 자체도 막지 않는다.
+`free_w_preferred=true`이면 `d384_beta_interpretation_eligible=false`여야 하며,
+D384의 beta·굵기효과 보조 결론은 내리지 않는다. 이는 C192 대 B192 주 비교에는
+영향을 주지 않고, D384 예측 C80으로 계산 보정을 실행하는 것 자체도 막지 않는다.
 이 필드는 validation 뒤 최종 `participant_thresholds.json`에도 그대로 보존된다.
 
 ## 11. 7단계 — 검증 plan·최종 recovery·192 PNG
 
-검증 반응을 보기 전에 두 후보 중 B96/C96 예측 95% CI의 보수적 로그 간격이
+검증 반응을 보기 전에 두 후보 중 B192/C192 예측 95% CI의 보수적 로그 간격이
 가장 큰 굵기를 먼저 고르고, 동률이면 절대 로그 C80 점추정 비, 다시 동률이면
 낮은 px를 고른다. 두 후보 간격이 모두 0이면 점추정으로 한 굵기를 동결하되
 plan의 `predicted_separability=false`와 구분 가능성 미확인 표지를 확인한다.
 이 경우에도 계획대로 검증하며, 검증 후 `모델 구분 불가`는 허용되는 결과다.
-8수준과 64회×3 시행을 동결하고 validation 전역 trial ID는 289~480으로 고정한다.
+8수준과 64회×3 시행을 동결하고 validation 전역 trial ID는 385~576으로 고정한다.
 
 ```powershell
-python validation_design.py --config ../data/experiment/private/experiment_config.json --calibration-fits ../results/calibration_model_fits.json --seed 20260914 --first-trial-id 289 --output ../data/experiment/validation/validation-plan.json
+python validation_design.py --config ../data/experiment/private/experiment_config.json --calibration-fits ../results/calibration_model_fits.json --seed 20260914 --first-trial-id 385 --output ../data/experiment/validation/validation-plan.json
 python validation_recovery.py --config ../data/experiment/private/experiment_config.json --validation-plan ../data/experiment/validation/validation-plan.json --repetitions 200 --bootstrap-replicates 50 --seed 20260916 --output ../results/validation_recovery.json
 python stimulus_renderer.py compile-validation --config ../data/experiment/private/experiment_config.json --calibration-fits ../results/calibration_model_fits.json --validation-plan ../data/experiment/validation/validation-plan.json --manifest ../data/experiment/validation/validation-manifest.json --png-dir ../data/experiment/validation
 python research_readiness.py --format markdown
@@ -323,8 +332,8 @@ python analyze_validation.py --config ../data/experiment/private/experiment_conf
    승패를 만들지 않는다.
    각 block 및 pooled C80의 점추정과 95% CI 전체가 실제 제시 ΔE00 범위에
    bracket되지 않아도 `stable=false`이며 확정할 수 없다.
-4. 같은 교정 모의 반응으로 짝지은 B96/C96 예측 bootstrap과 validation pooled
-   bootstrap으로 `Δloss=|C96-O|-|B96-O|` 95% 구간을 계산한다. 구간 전체가
+4. 같은 교정 모의 반응으로 짝지은 B192/C192 예측 bootstrap과 validation pooled
+   bootstrap으로 `Δloss=|C192-O|-|B192-O|` 95% 구간을 계산한다. 구간 전체가
    0 한쪽에 있을 때만 우열을 판정하고, 0을 걸치면 `모델 구분 불가`, 복제값이
    없으면 `comparison_unresolvable`로 기록한다.
 5. 공통 `w` 대 block별 자유 `w` AIC는 보조 민감도 점검이다. 구현되지 않은
@@ -354,7 +363,7 @@ config·plan·threshold의 raw/canonical hash, 참가자, CVD/severity,
 불일치가 아니다.
 
 ```powershell
-python run_path_correction_analysis.py --config ../data/experiment/private/experiment_config.json --validation-plan ../data/experiment/validation/validation-plan.json --participant-thresholds ../results/participant_thresholds.json --participant-id P01 --models B96 B288 C96 D288 --target-policy point --output ../results/path_correction_analysis.json
+python run_path_correction_analysis.py --config ../data/experiment/private/experiment_config.json --validation-plan ../data/experiment/validation/validation-plan.json --participant-thresholds ../results/participant_thresholds.json --participant-id P01 --models B192 B384 C192 D384 --target-policy point --output ../results/path_correction_analysis.json
 ```
 
 주 분석은 `--target-policy point`, CI 상한을 쓴 보수적 민감도 분석은 별도 파일에
@@ -380,14 +389,14 @@ config의 목표 허용오차는 자극 수준 생성 검사에만 쓰인다. �
 | 실제 장치값 또는 config에 `미정`이 남음 | 사람 수집 중단 |
 | config-bound calibration recovery 실패 | 수준·시행 설계 재검토 후 새 config |
 | 자료수집 Git commit, config, PNG, sidecar, manifest hash 불일치 | 수집 전이면 새 commit/config에서 자극 재생성; 이미 수집했다면 원자료를 고치지 말고 해당 세션 제외·편차 보고 |
-| 교정 288 완료 시행 또는 균형 불충족 | 분석·validation 계획 생성 중단 |
+| 교정 384 완료 시행 또는 균형 불충족 | 분석·validation 계획 생성 중단 |
 | plan-bound validation recovery 실패 | 192회 수집 중단, 설계 재검토 |
 | 검증 세 블록 CV>0.20, CI 공통교집합 없음 또는 수렴률<0.90 | pooled C80·모델 승패 금지, 세션별 결과 보고 |
-| B96/C96 Δloss bootstrap CI가 0을 포함 | `모델 구분 불가` 보고 |
+| B192/C192 Δloss bootstrap CI가 0을 포함 | `모델 구분 불가` 보고 |
 | paired 교정 예측 또는 검증 bootstrap 복제값 누락 | `comparison_unresolvable`, 확정·승패 보고 중단 |
-| 교정 공통/자유 `w` 비교 미수렴 또는 자유 `w` AIC가 더 낮음 | D288 beta·굵기효과 해석 금지; C96/B96 주 비교와 D288 계산 보정은 유지 |
+| 교정 공통/자유 `w` 비교 미수렴 또는 자유 `w` AIC가 더 낮음 | D384 beta·굵기효과 해석 금지; C192/B192 주 비교와 D384 계산 보정은 유지 |
 | 검증 공통/자유 `w` 비교 미수렴 | primary Δloss를 `indeterminate`로 보고 |
-| D288 beta 95% CI가 0을 포함 | `굵기 감소 방향 미확인` 보고 |
+| D384 beta 95% CI가 0을 포함 | `굵기 감소 방향 미확인` 보고 |
 | 보정 전·후 새 사람 시험 없음 | `실제 가독성 향상` 문장 금지 |
 
 `validation_recovery.py`는 설계 회복 게이트를 못 넘으면 결과 파일을 남기고 종료
@@ -400,9 +409,9 @@ config의 목표 허용오차는 자극 수준 생성 검사에만 쓰인다. �
 
 | 파일 | 의미 | 공개 주의 |
 |---|---|---|
-| `calibration-manifest.json` | 실제 표시한 288 PNG와 provenance | 익명 ID만 |
+| `calibration-manifest.json` | 실제 표시한 384 PNG와 provenance | 익명 ID만 |
 | `P01-calibration.jsonl` | 교정 완료·중단 시도의 append-only 사람 원응답 | 비공개 |
-| `calibration_model_fits.json` | B96/B288/C96/D288 교정 전용 적합 | held-out 결론 아님 |
+| `calibration_model_fits.json` | B192/B384/C192/D384 교정 전용 적합 | held-out 결론 아님 |
 | `validation-plan.json` | 응답 전 동결한 굵기·8수준·192 시행 | 수정 금지 |
 | `validation-manifest.json` | 실제 표시한 검증 PNG와 hash | 익명 ID만 |
 | `P01-validation.jsonl` | 검증 완료·중단 시도의 append-only 사람 원응답 | 비공개 |

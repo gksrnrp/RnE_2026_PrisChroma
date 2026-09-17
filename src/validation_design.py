@@ -1,7 +1,7 @@
 """교정 자료만으로 held-out 4AFC 검증 계획을 동결한다.
 
 이 모듈은 검증 반응을 읽지 않는다. 동결된 실험 설정과
-``calibration_model_fits``의 B96/C96 예측만 사용해 검증 굵기 하나, 로그 간격
+``calibration_model_fits``의 B192/C192 예측만 사용해 검증 굵기 하나, 로그 간격
 8수준, 완전 균형 64시행 블록 세 개를 결정한다. 출력 ``plan_sha256``은 이후
 검증 시행이 정확히 이 계획에 속하는지 묶는 불변 식별자다.
 """
@@ -36,11 +36,11 @@ CANDIDATE_POLICY = (
     "maximum-conservative-95ci-log-gap-then-absolute-log-c80-ratio-"
     "then-lower-width-v1"
 )
-LEVEL_POLICY = "b96-c96-ci-envelope-log-x-plusminus-log9w-v1"
+LEVEL_POLICY = "b192-c192-ci-envelope-log-x-plusminus-log9w-v1"
 LEVEL_COUNT = 8
 BLOCK_COUNT = 3
 TRIALS_PER_BLOCK = 64
-VALIDATION_FIRST_TRIAL_ID = 289
+VALIDATION_FIRST_TRIAL_ID = 385
 VALIDATION_LAST_TRIAL_ID = VALIDATION_FIRST_TRIAL_ID + BLOCK_COUNT * TRIALS_PER_BLOCK - 1
 LOGIT_SPAN = math.log(0.9 / 0.1)
 
@@ -161,13 +161,13 @@ def _candidate_rows(
     candidates = config.get("validation", {}).get("candidates")
     if not isinstance(candidates, list) or len(candidates) != 2:
         raise ValidationDesignError("config.validation.candidates에는 두 후보가 필요합니다.")
-    b96 = _model_row(participant, "B96")
-    c96 = _model_row(participant, "C96")
+    b192 = _model_row(participant, "B192")
+    c192 = _model_row(participant, "C192")
     rows: list[dict[str, Any]] = []
     for candidate in candidates:
         width_px = int(candidate["rendered_width_px"])
-        b_prediction = _prediction(b96, width_px)
-        c_prediction = _prediction(c96, width_px)
+        b_prediction = _prediction(b192, width_px)
+        c_prediction = _prediction(c192, width_px)
         b_value = float(b_prediction["c80_sim"])
         c_value = float(c_prediction["c80_sim"])
         # 두 95% CI 사이의 보수적 로그 간격. 겹치면 0이다.
@@ -180,17 +180,17 @@ def _candidate_rows(
             {
                 "stroke_width_px": width_px,
                 "stroke_width_deg": float(candidate["width_deg"]),
-                "b96": {
+                "b192": {
                     "c80_sim": b_value,
                     "ci_low": b_low,
                     "ci_high": b_high,
-                    "w": _finite_positive(b96["fit"]["parameters"].get("w"), "B96 w"),
+                    "w": _finite_positive(b192["fit"]["parameters"].get("w"), "B192 w"),
                 },
-                "c96": {
+                "c192": {
                     "c80_sim": c_value,
                     "ci_low": c_low,
                     "ci_high": c_high,
-                    "w": _finite_positive(c96["fit"]["parameters"].get("w"), "C96 w"),
+                    "w": _finite_positive(c192["fit"]["parameters"].get("w"), "C192 w"),
                 },
                 "absolute_log_c80_ratio": abs(math.log(b_value / c_value)),
                 "conservative_95ci_log_gap": conservative_gap,
@@ -198,11 +198,11 @@ def _candidate_rows(
                 "predicted_separability": conservative_gap > 0.0,
             }
         )
-        for model_name in ("b96", "c96"):
+        for model_name in ("b192", "c192"):
             model = rows[-1][model_name]
             c80 = float(model["c80_sim"])
             w = float(model["w"])
-            lapse = float((b96 if model_name == "b96" else c96)["fit"]["fixed_lapse"])
+            lapse = float((b192 if model_name == "b192" else c192)["fit"]["fixed_lapse"])
             lower = c80 * math.exp(-LOGIT_SPAN * w)
             upper = c80 * math.exp(LOGIT_SPAN * w)
             model["point_centered_log_x_envelope"] = {
@@ -235,7 +235,7 @@ def _select_candidate(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
 
 def _target_levels(selected: Mapping[str, Any]) -> list[float]:
     endpoints: list[float] = []
-    for model in ("b96", "c96"):
+    for model in ("b192", "c192"):
         low_c80 = float(selected[model]["ci_low"])
         high_c80 = float(selected[model]["ci_high"])
         w = float(selected[model]["w"])
@@ -247,7 +247,7 @@ def _target_levels(selected: Mapping[str, Any]) -> list[float]:
         )
     low, high = min(endpoints), max(endpoints)
     if not 0.0 < low < high:
-        raise ValidationDesignError("B96/C96 예측으로 유효한 검증 수준 범위를 만들지 못했습니다.")
+        raise ValidationDesignError("B192/C192 예측으로 유효한 검증 수준 범위를 만들지 못했습니다.")
     levels = np.geomspace(low, high, LEVEL_COUNT)
     return [float(value) for value in levels]
 
@@ -397,7 +397,7 @@ def _validated_candidate_predictions(plan: Mapping[str, Any]) -> list[Mapping[st
         _finite_positive(width_deg, f"{label}.stroke_width_deg")
 
         model_values: dict[str, tuple[float, float, float, float]] = {}
-        for model_name in ("b96", "c96"):
+        for model_name in ("b192", "c192"):
             model = row.get(model_name)
             if not isinstance(model, Mapping):
                 raise ValidationDesignError(f"{label}.{model_name}은 객체여야 합니다.")
@@ -418,8 +418,8 @@ def _validated_candidate_predictions(plan: Mapping[str, Any]) -> list[Mapping[st
                 )
             model_values[model_name] = (c80, ci_low, ci_high, w)
 
-        b_c80, b_low, b_high, _ = model_values["b96"]
-        c_c80, c_low, c_high, _ = model_values["c96"]
+        b_c80, b_low, b_high, _ = model_values["b192"]
+        c_c80, c_low, c_high, _ = model_values["c192"]
         expected_ratio = abs(math.log(b_c80 / c_c80))
         expected_gap = _conservative_95ci_log_gap(b_low, b_high, c_low, c_high)
         reported_ratio_value = row.get("absolute_log_c80_ratio")
@@ -439,7 +439,7 @@ def _validated_candidate_predictions(plan: Mapping[str, Any]) -> list[Mapping[st
         )
         if reported_ratio != expected_ratio or reported_gap != expected_gap:
             raise ValidationDesignError(
-                f"{label}의 선택 점수가 B96/C96 예측에서 재계산한 값과 다릅니다."
+                f"{label}의 선택 점수가 B192/C192 예측에서 재계산한 값과 다릅니다."
             )
         expected_separability = expected_gap > 0.0
         if (
@@ -615,7 +615,7 @@ def validate_plan(plan: Mapping[str, Any]) -> None:
         range(VALIDATION_FIRST_TRIAL_ID, VALIDATION_LAST_TRIAL_ID + 1)
     ):
         raise ValidationDesignError(
-            "validation trial_id는 예약 범위 289~480을 정확히 한 번씩 사용해야 합니다."
+            "validation trial_id는 예약 범위 385~576을 정확히 한 번씩 사용해야 합니다."
         )
     participant_id = plan.get("participant_id")
     config_sha = plan.get("config_sha256")
@@ -680,8 +680,8 @@ def build_validation_plan(
         raise ValidationDesignError("seed는 0 이상의 정수여야 합니다.")
     if first_trial_id != VALIDATION_FIRST_TRIAL_ID:
         raise ValidationDesignError(
-            "validation 전역 trial_id는 예약 범위 289~480을 사용하므로 "
-            "first_trial_id는 289여야 합니다."
+            "validation 전역 trial_id는 예약 범위 385~576을 사용하므로 "
+            "first_trial_id는 385여야 합니다."
         )
     config = _read_json(config_path)
     calibration = _read_json(calibration_fits_path)

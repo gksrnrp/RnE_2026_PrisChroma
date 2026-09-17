@@ -53,7 +53,7 @@ HUMAN_CONFIG_SCHEMA = (
     PROJECT_ROOT / "schemas" / "human" / "experiment_config.schema.json"
 )
 ANALYZE_VALIDATION_SCRIPT = PROJECT_ROOT / "src" / "analyze_validation.py"
-MODELS = ("B96", "B288", "C96", "D288")
+MODELS = ("B192", "B384", "C192", "D384")
 
 
 class PathCorrectionAnalysisError(ValueError):
@@ -364,11 +364,11 @@ def run_path_correction_analysis(
         or any(model not in MODELS for model in selected_models)
     ):
         raise PathCorrectionAnalysisError(
-            "models는 B96/B288/C96/D288 중 중복 없는 한 개 이상이어야 합니다."
+            "models는 B192/B384/C192/D384 중 중복 없는 한 개 이상이어야 합니다."
         )
     if not development_mode and selected_models != MODELS:
         raise PathCorrectionAnalysisError(
-            "사람 분석은 선택 보고를 막기 위해 models를 B96/B288/C96/D288 "
+            "사람 분석은 선택 보고를 막기 위해 models를 B192/B384/C192/D384 "
             "전체 고정 순서로 사용해야 합니다."
         )
 
@@ -476,17 +476,17 @@ def run_path_correction_analysis(
         "calibration_width_slope_sensitivity"
     )
     if isinstance(calibration_sensitivity, Mapping):
-        d288_beta_claim_allowed = bool(
+        d384_beta_claim_allowed = bool(
             not development_mode
-            and calibration_sensitivity.get("d288_beta_interpretation_eligible")
+            and calibration_sensitivity.get("d384_beta_interpretation_eligible")
             is True
         )
-        d288_beta_claim_reason = calibration_sensitivity.get(
-            "d288_beta_interpretation_reason"
+        d384_beta_claim_reason = calibration_sensitivity.get(
+            "d384_beta_interpretation_reason"
         )
     else:
-        d288_beta_claim_allowed = False
-        d288_beta_claim_reason = "calibration_width_slope_sensitivity_unavailable"
+        d384_beta_claim_allowed = False
+        d384_beta_claim_reason = "calibration_width_slope_sensitivity_unavailable"
 
     level_results: list[dict[str, Any]] = []
     for expected_index, source_level in enumerate(selected_source_levels, start=1):
@@ -631,8 +631,8 @@ def run_path_correction_analysis(
             "computational_constraint_claim_allowed": not development_mode,
             "human_readability_improvement_claim_allowed": False,
             "all_frozen_validation_levels_reported": not development_mode,
-            "d288_correction_computation_allowed": True,
-            "d288_beta_or_width_effect_claim_allowed": d288_beta_claim_allowed,
+            "d384_correction_computation_allowed": True,
+            "d384_beta_or_width_effect_claim_allowed": d384_beta_claim_allowed,
         },
         "interpretation": {
             "minimum_scope": "exact_over_finite_symmetric_path_grid_not_continuous_global",
@@ -643,7 +643,7 @@ def run_path_correction_analysis(
                 if isinstance(calibration_sensitivity, Mapping)
                 else None
             ),
-            "d288_beta_or_width_effect_claim_reason": d288_beta_claim_reason,
+            "d384_beta_or_width_effect_claim_reason": d384_beta_claim_reason,
             "level_scope": (
                 "all_eight_frozen_validation_levels"
                 if not development_mode

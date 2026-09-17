@@ -172,7 +172,7 @@
     "calibration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["widths", "trials_per_width"],
+      "required": ["widths", "trials_per_width", "session_block_count"],
       "properties": {
         "widths": {
           "type": "array",
@@ -180,7 +180,8 @@
           "maxItems": 3,
           "items": {"$ref": "#/$defs/rendered_width"}
         },
-        "trials_per_width": {"type": "integer", "minimum": 1}
+        "trials_per_width": {"const": [96, 192, 96]},
+        "session_block_count": {"enum": [4, 6]}
       }
     },
     "validation": {
@@ -254,7 +255,7 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {"enum": ["B96", "B288", "C96", "D288"]}
+          "items": {"enum": ["B192", "B384", "C192", "D384"]}
         },
         "include_szafir_transfer": {"type": "boolean"},
         "szafir_probability_coordinate": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}

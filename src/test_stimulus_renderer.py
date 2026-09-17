@@ -84,7 +84,7 @@ def renderer_config() -> dict:
             "lapse_session_id": "S_LAPSE_TEST",
         },
         "sampling": {
-            "randomization": "balanced-4-session-blocks-within-block-shuffle",
+            "randomization": "balanced-mixed-width-session-blocks-within-block-shuffle",
             "delta_e00_levels": [
                 0.35,
                 0.5,
@@ -106,7 +106,9 @@ def renderer_config() -> dict:
                 {"width_px": 2, "width_deg": 0.05},
                 {"width_px": 4, "width_deg": 0.10},
                 {"width_px": 6, "width_deg": 0.15},
-            ]
+            ],
+            "trials_per_width": [96, 192, 96],
+            "session_block_count": 4
         },
         "validation": {
             "candidates": [
@@ -189,16 +191,24 @@ def _write_json(path: Path, payload: dict) -> str:
 def _full_calibration_schedule(config: dict, config_sha256: str) -> list[dict]:
     settings = config["observer_profile"]
     rows: list[dict] = []
+    trial_counts = config["calibration"]["trials_per_width"]
     for width_index, width in enumerate(config["calibration"]["widths"], start=1):
+        repeats = trial_counts[width_index - 1] // 96
         for level_index, target in enumerate(
             config["sampling"]["delta_e00_levels"], start=1
         ):
-            shift = ((width_index - 1) * 12 + level_index - 1) % 4
-            for block in range(1, 5):
-                for position, odd in (
-                    ((block - 1 + shift) % 4 + 1, "a"),
-                    ((block + shift) % 4 + 1, "b"),
-                ):
+            combinations = [
+                (position, odd)
+                for position in range(1, 5)
+                for odd in ("a", "b")
+            ]
+            for repeat_index in range(repeats):
+                for combination_index, (position, odd) in enumerate(combinations):
+                    block = (
+                        (level_index - 1) * 8
+                        + combination_index
+                        + repeat_index * 3
+                    ) % 4 + 1
                     rows.append(
                         {
                             "trial_id": 0,
@@ -284,7 +294,7 @@ def _validation_fixture(directory: Path) -> tuple[Path, Path, Path]:
         config_path,
         calibration_path,
         seed=17,
-        first_trial_id=289,
+        first_trial_id=385,
         allow_synthetic=True,
     )
     plan_path = directory / "validation-plan.json"
@@ -801,7 +811,7 @@ class PhaseManifestCompilerTests(unittest.TestCase):
             )
             self.assertEqual(
                 {row["trial_id"] for row in manifest["trials"]},
-                set(range(289, 481)),
+                set(range(385, 577)),
             )
             counts = Counter(
                 (

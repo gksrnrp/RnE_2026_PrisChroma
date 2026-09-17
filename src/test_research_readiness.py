@@ -163,7 +163,7 @@ def _make_human_ready_scaffold(root: Path) -> None:
                 "profile_results": {
                     name: {
                         "simulation_replicates": count,
-                        "models": {model: {} for model in ("B96", "B288", "C96", "D288")},
+                        "models": {model: {} for model in ("B192", "B384", "C192", "D384")},
                         "passed": True,
                         "reasons": [],
                     }
@@ -189,14 +189,14 @@ def _make_human_ready_scaffold(root: Path) -> None:
                             "all_required_truth_covered": True,
                             "required_parameters": (
                                 {"c80_ref": True, "beta": True}
-                                if model == "D288"
+                                if model == "D384"
                                 else {"c80_ref": True}
-                                if model == "C96"
+                                if model == "C192"
                                 else {"c80": True}
                             ),
                         },
                     }
-                    for model in ("B96", "B288", "C96", "D288")
+                    for model in ("B192", "B384", "C192", "D384")
                 },
                 "paired_reference_integrity": {
                     "passed": True,
@@ -276,7 +276,7 @@ def _add_claim_evidence(root: Path, *, placeholder_source: bool = False) -> None
         "config_sha256": _hash(config_path),
         "calibration_model_fits_sha256": _hash(calibration_path),
         "source_git_commit": FAKE_COMMIT,
-        "schedule": [{"trial_id": index} for index in range(289, 481)],
+        "schedule": [{"trial_id": index} for index in range(385, 577)],
     }
     plan["plan_sha256"] = _validation_plan_digest(plan)
     for row in plan["schedule"]:

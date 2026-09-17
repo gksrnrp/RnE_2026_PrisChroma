@@ -22,6 +22,14 @@ from typing import Any
 
 from PIL import Image, __version__ as PILLOW_VERSION
 
+from calibration_design import (
+    CALIBRATION_RANDOMIZATION,
+    CALIBRATION_TOTAL_TRIALS,
+    block_count_from_config,
+    block_trial_count,
+    trial_counts_from_config,
+    width_block_trial_counts,
+)
 from color_spaces import srgb_to_lab
 from distance import delta_e_2000
 from machado import simulate_color_float
@@ -702,11 +710,10 @@ def _compile_settings(config: Mapping[str, Any]) -> dict[str, Any]:
     observer = _mapping(_required(config, "observer_profile"), "observer_profile")
     if (
         _required(config, "sampling.randomization")
-        != "balanced-4-session-blocks-within-block-shuffle"
+        != CALIBRATION_RANDOMIZATION
     ):
         raise StimulusCompilationError(
-            "sampling.randomization은 "
-            "balanced-4-session-blocks-within-block-shuffle여야 합니다."
+            f"sampling.randomization은 {CALIBRATION_RANDOMIZATION}여야 합니다."
         )
     stimulus_family_id = color_design.get("stimulus_family_id")
     if not isinstance(stimulus_family_id, str) or not stimulus_family_id.strip():
@@ -839,9 +846,10 @@ def compile_stimulus_manifest(
         session_block = _integer(
             row.get("session_block"), f"schedule[{index}].session_block", minimum=1
         )
-        if session_block > 4:
+        calibration_block_count = block_count_from_config(config)
+        if session_block > calibration_block_count:
             raise StimulusCompilationError(
-                f"schedule[{index}].session_block은 1~4여야 합니다."
+                f"schedule[{index}].session_block은 1~{calibration_block_count}여야 합니다."
             )
         try:
             _position_labels(row)
@@ -936,13 +944,13 @@ def compile_stimulus_manifest(
             )
             for index, item in enumerate(calibration_rows)
         }
-        if len(configured_widths) != 3 or len(rows) != 288:
+        if len(configured_widths) != 3 or len(rows) != CALIBRATION_TOTAL_TRIALS:
             raise StimulusCompilationError(
-                "전체 calibration schedule은 3굵기, 12수준, 총 288시행이어야 합니다."
+                "전체 calibration schedule은 3굵기, 12수준, 총 384시행이어야 합니다."
             )
-        if seen_trials != set(range(1, 289)):
+        if seen_trials != set(range(1, CALIBRATION_TOTAL_TRIALS + 1)):
             raise StimulusCompilationError(
-                "전체 calibration trial_id는 validation 예약 범위와 겹치지 않도록 정확히 1~288이어야 합니다."
+                "전체 calibration trial_id는 정확히 1~384여야 합니다."
             )
         combinations = Counter(
             (
@@ -953,10 +961,18 @@ def compile_stimulus_manifest(
             )
             for row in rows
         )
+        width_rows = list(_required(config, "calibration.widths"))
+        expected_repeats = {
+            int(width_rows[index]["width_px"]): count // 96
+            for index, count in enumerate(trial_counts_from_config(config))
+        }
         if (
             len(combinations) != 288
-            or set(combinations.values()) != {1}
             or {key[0] for key in combinations} != configured_widths
+            or any(
+                count != expected_repeats[width_px]
+                for (width_px, _level, _position, _odd), count in combinations.items()
+            )
         ):
             raise StimulusCompilationError(
                 "전체 schedule의 굵기×수준×위치×odd색 조합이 완전 균형이 아닙니다."
@@ -966,21 +982,24 @@ def compile_stimulus_manifest(
             (int(row["session_block"]), int(row["stroke_width_px"]))
             for row in rows
         )
-        block_cell_counts = Counter(
-            (
-                int(row["session_block"]),
-                int(row["stroke_width_px"]),
-                float(row["target_delta_e00_simulated"]),
-            )
-            for row in rows
+        block_count = block_count_from_config(config)
+        expected_block = block_trial_count(config)
+        expected_width_block = width_block_trial_counts(config)
+        expected_block_width_counts = Counter(
+            {
+                (block, int(width_rows[index]["width_px"])): expected_width_block[index]
+                for block in range(1, block_count + 1)
+                for index in range(3)
+            }
         )
         if (
-            block_counts != Counter({1: 72, 2: 72, 3: 72, 4: 72})
-            or set(block_width_counts.values()) != {24}
-            or set(block_cell_counts.values()) != {2}
+            block_counts != Counter(
+                {block: expected_block for block in range(1, block_count + 1)}
+            )
+            or block_width_counts != expected_block_width_counts
         ):
             raise StimulusCompilationError(
-                "전체 schedule이 4×72 세션 블록 균형을 만족하지 않습니다."
+                "전체 schedule이 동결한 384시행 세션 블록 균형을 만족하지 않습니다."
             )
 
     generated: dict[float, dict[str, Any]] = {}
@@ -1639,16 +1658,16 @@ def compile_validation_stimulus_manifest(
         "validation plan.selection_specification.first_trial_id",
         minimum=1,
     )
-    if first_trial_id != 289:
+    if first_trial_id != 385:
         raise StimulusCompilationError(
-            "validation 전역 trial_id는 예약 범위 289~480을 사용해야 합니다."
+            "validation 전역 trial_id는 예약 범위 385~576을 사용해야 합니다."
         )
     base_seed = _integer(
         selection.get("base_seed"),
         "validation plan.selection_specification.base_seed",
         minimum=0,
     )
-    expected_ids = set(range(289, 481))
+    expected_ids = set(range(385, 577))
     seen_ids: set[int] = set()
     seen_global_keys: set[str] = set()
     block_combinations: Counter[tuple[str, int, int, str]] = Counter()
@@ -1897,8 +1916,8 @@ def _validate_calibration_manifest_for_practice(
             )
 
     raw_trials = manifest.get("trials")
-    if not isinstance(raw_trials, Sequence) or isinstance(raw_trials, (str, bytes)) or len(raw_trials) != 288 or manifest.get("trial_count") != 288:
-        raise StimulusCompilationError("practice 입력 calibration manifest는 전체 288시행이어야 합니다.")
+    if not isinstance(raw_trials, Sequence) or isinstance(raw_trials, (str, bytes)) or len(raw_trials) != CALIBRATION_TOTAL_TRIALS or manifest.get("trial_count") != CALIBRATION_TOTAL_TRIALS:
+        raise StimulusCompilationError("practice 입력 calibration manifest는 전체 384시행이어야 합니다.")
     trial_ids: set[int] = set()
     combinations: Counter[tuple[int, float, int, str]] = Counter()
     block_counts: Counter[int] = Counter()
@@ -1923,11 +1942,23 @@ def _validate_calibration_manifest_for_practice(
         combinations[(width, level_target, position, str(odd))] += 1
         block_counts[block] += 1
         block_cells[(block, width, level_target)] += 1
-    if len(trial_ids) != 288 or block_counts != Counter({1: 72, 2: 72, 3: 72, 4: 72}):
-        raise StimulusCompilationError("calibration manifest의 4×72 block 구성이 잘못됐습니다.")
-    if trial_ids != set(range(1, 289)):
-        raise StimulusCompilationError("calibration manifest trial_id는 정확히 1~288이어야 합니다.")
-    if len(combinations) != 288 or set(combinations.values()) != {1}:
+    calibration_block_count = block_count_from_config(config)
+    expected_block_trials = block_trial_count(config)
+    if len(trial_ids) != CALIBRATION_TOTAL_TRIALS or block_counts != Counter(
+        {block: expected_block_trials for block in range(1, calibration_block_count + 1)}
+    ):
+        raise StimulusCompilationError("calibration manifest의 384시행 block 구성이 잘못됐습니다.")
+    if trial_ids != set(range(1, CALIBRATION_TOTAL_TRIALS + 1)):
+        raise StimulusCompilationError("calibration manifest trial_id는 정확히 1~384여야 합니다.")
+    configured_width_rows = list(_required(config, "calibration.widths"))
+    expected_repeats = {
+        int(configured_width_rows[index]["width_px"]): count // 96
+        for index, count in enumerate(trial_counts_from_config(config))
+    }
+    if len(combinations) != 288 or any(
+        count != expected_repeats[width]
+        for (width, _target, _position, _odd), count in combinations.items()
+    ):
         raise StimulusCompilationError(
             "calibration manifest의 굵기×수준×위치×odd 완전균형이 깨졌습니다."
         )
@@ -1951,19 +1982,26 @@ def _validate_calibration_manifest_for_practice(
         for position in range(1, 5)
         for odd in ("a", "b")
     }
-    expected_block_cells = {
-        (block, width, target)
-        for block in range(1, 5)
-        for width in configured_widths
-        for target in configured_targets
-    }
     if set(combinations) != expected_combinations:
         raise StimulusCompilationError(
             "calibration manifest가 config의 3굵기×12수준 조합과 다릅니다."
         )
-    if set(block_cells) != expected_block_cells or set(block_cells.values()) != {2}:
+    expected_width_block = width_block_trial_counts(config)
+    observed_width_block = Counter(
+        (block, width)
+        for (block, width, _target), count in block_cells.items()
+        for _ in range(count)
+    )
+    expected_width_block_counter = Counter(
+        {
+            (block, int(configured_width_rows[index]["width_px"])): expected_width_block[index]
+            for block in range(1, calibration_block_count + 1)
+            for index in range(3)
+        }
+    )
+    if observed_width_block != expected_width_block_counter:
         raise StimulusCompilationError(
-            "calibration manifest의 각 block은 굵기×수준 cell당 2시행이어야 합니다."
+            "calibration manifest의 block별 굵기 시행 수가 동결 설계와 다릅니다."
         )
     raw_pairs = manifest.get("color_pairs")
     if not isinstance(raw_pairs, Sequence) or isinstance(raw_pairs, (str, bytes)) or len(raw_pairs) != 12:

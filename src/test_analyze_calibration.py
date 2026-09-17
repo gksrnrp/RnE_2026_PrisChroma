@@ -102,16 +102,18 @@ def _write_synthetic_fixture(
     records = []
     trial_id = 1
     reference_deg = config["calibration"]["widths"][1]["width_deg"]
+    trials_per_width = config["calibration"]["trials_per_width"]
     for width_index, width in enumerate(config["calibration"]["widths"], start=1):
         true_c80 = 2.45 * (width["width_deg"] / reference_deg) ** -0.42
+        cell_trials = trials_per_width[width_index - 1] // 12
         for level_index, pair in enumerate(pairs, start=1):
             probability = direct_c80_probability(
                 pair["delta_e00_simulated"], true_c80, 0.32, profile["fixed_lapse"]
             )
-            successes = int(round(probability * 8))
-            for repeat in range(8):
+            successes = int(round(probability * cell_trials))
+            for repeat in range(cell_trials):
                 correct_position = repeat % 4 + 1
-                odd_color = "a" if repeat < 4 else "b"
+                odd_color = "a" if repeat % 8 < 4 else "b"
                 base_color = "b" if odd_color == "a" else "a"
                 position_colors = [base_color] * 4
                 position_colors[correct_position - 1] = odd_color
@@ -139,8 +141,8 @@ def _write_synthetic_fixture(
                         f"data/synthetic/fixture/trial-{trial_id:04d}.pixels.json"
                     ),
                     "participant_id": profile["participant_id"],
-                    "session_id": f"S_CALIBRATION_{repeat // 2 + 1}",
-                    "session_block": repeat // 2 + 1,
+                    "session_id": f"S_CALIBRATION_{repeat % 4 + 1}",
+                    "session_block": repeat % 4 + 1,
                     "staircase_id": None,
                     "trial_id": trial_id,
                     "phase": "calibration",
@@ -200,7 +202,7 @@ def _write_synthetic_fixture(
 def _write_mock_calibration_manifest_fixture(
     directory: Path,
 ) -> tuple[Path, dict, str, list[dict], dict]:
-    """실제 파일 검증 호출 수/결박 로직만 빠르게 시험하는 288행 fixture."""
+    """실제 파일 검증 호출 수/결박 로직만 빠르게 시험하는 384행 fixture."""
 
     config_path, trials_path = _write_synthetic_fixture(directory)
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -293,7 +295,7 @@ def _write_mock_calibration_manifest_fixture(
             "development_partial_schedule": False,
         },
         "color_pairs": color_pairs,
-        "trial_count": 288,
+        "trial_count": 384,
         "png_files_written": True,
         "trials": manifest_rows,
     }
@@ -411,6 +413,13 @@ def _write_human_production_fixture(
         verified.extend(plan.trials)
     reference_deg = config["calibration"]["widths"][1]["width_deg"]
     cell_offsets: Counter[tuple[int, int]] = Counter()
+    cell_trials_by_width = {
+        int(row["width_px"]): count // 12
+        for row, count in zip(
+            config["calibration"]["widths"],
+            config["calibration"]["trials_per_width"],
+        )
+    }
     records = []
     for item in verified:
         row = item.row
@@ -422,7 +431,7 @@ def _write_human_production_fixture(
             0.32,
             config["observer_profile"]["fixed_lapse"],
         )
-        successes = int(round(probability * 8))
+        successes = int(round(probability * cell_trials_by_width[key[0]]))
         correct = cell_offsets[key] < successes
         cell_offsets[key] += 1
         correct_position = int(row["correct_position"])
@@ -466,7 +475,7 @@ def _write_human_production_fixture(
 
 
 class CalibrationAnalysisEndToEndTests(unittest.TestCase):
-    def test_generated_human_288_pipeline_binds_manifest_and_rejects_tampering(self) -> None:
+    def test_generated_human_384_pipeline_binds_manifest_and_rejects_tampering(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             directory = Path(directory_name)
             config, manifest, trials, manifest_sha, png_paths = (
@@ -508,7 +517,7 @@ class CalibrationAnalysisEndToEndTests(unittest.TestCase):
             )
             self.assertEqual(
                 payload["participants"][0]["calibration"]["completed_trial_count"],
-                288,
+                384,
             )
 
             replacement_trials = directory / "replacement-calibration.jsonl"
@@ -542,7 +551,7 @@ class CalibrationAnalysisEndToEndTests(unittest.TestCase):
                 )
             manifest.write_bytes(original_manifest)
 
-            self.assertEqual(len(png_paths), 288)
+            self.assertEqual(len(png_paths), 384)
             first_png = png_paths[0]
             original_png = first_png.read_bytes()
             first_png.write_bytes(original_png + b"tamper")
@@ -610,12 +619,12 @@ class CalibrationAnalysisEndToEndTests(unittest.TestCase):
                 payload["implementation_hashes"]["src/analyze_calibration.py"],
             )
             participant = payload["participants"][0]
-            self.assertEqual(participant["calibration"]["completed_trial_count"], 288)
+            self.assertEqual(participant["calibration"]["completed_trial_count"], 384)
             block_quality = participant["calibration"]["session_block_quality"]
             self.assertEqual(
                 [row["session_block"] for row in block_quality], [1, 2, 3, 4]
             )
-            self.assertEqual([row["completed_trials"] for row in block_quality], [72] * 4)
+            self.assertEqual([row["completed_trials"] for row in block_quality], [96] * 4)
             self.assertEqual(len({row["session_id"] for row in block_quality}), 4)
             for row in block_quality:
                 self.assertAlmostEqual(
@@ -634,14 +643,14 @@ class CalibrationAnalysisEndToEndTests(unittest.TestCase):
                 sensitivity["shared_w_converged"]
                 and sensitivity["free_w_converged"],
             )
-            self.assertFalse(sensitivity["primary_c96_vs_b96_affected"])
+            self.assertFalse(sensitivity["primary_c192_vs_b192_affected"])
             self.assertEqual(
                 [row["model"] for row in participant["models"]],
-                ["B96", "B288", "C96", "D288"],
+                ["B192", "B384", "C192", "D384"],
             )
             self.assertEqual(
                 [row["training_trial_count"] for row in participant["models"]],
-                [96, 288, 96, 288],
+                [192, 384, 192, 384],
             )
             for model in participant["models"]:
                 self.assertEqual(len(model["held_out_candidate_predictions"]), 2)
@@ -655,14 +664,14 @@ class CalibrationAnalysisEndToEndTests(unittest.TestCase):
                         for prediction in model["held_out_candidate_predictions"]
                     )
                 )
-            b96 = participant["models"][0]
-            c96 = participant["models"][2]
-            pairing_id = "B96-C96-reference-width-parametric-v1"
-            self.assertEqual(b96["bootstrap"]["replicate_pairing_id"], pairing_id)
-            self.assertEqual(c96["bootstrap"]["replicate_pairing_id"], pairing_id)
+            b192 = participant["models"][0]
+            c192 = participant["models"][2]
+            pairing_id = "B192-C192-reference-width-parametric-v1"
+            self.assertEqual(b192["bootstrap"]["replicate_pairing_id"], pairing_id)
+            self.assertEqual(c192["bootstrap"]["replicate_pairing_id"], pairing_id)
             for b_prediction, c_prediction in zip(
-                b96["held_out_candidate_predictions"],
-                c96["held_out_candidate_predictions"],
+                b192["held_out_candidate_predictions"],
+                c192["held_out_candidate_predictions"],
                 strict=True,
             ):
                 self.assertEqual(b_prediction["bootstrap_pairing_id"], pairing_id)
@@ -684,10 +693,10 @@ class CalibrationAnalysisEndToEndTests(unittest.TestCase):
 
             tampered = copy.deepcopy(payload)
             sensitivity = tampered["participants"][0]["width_slope_sensitivity"]
-            sensitivity["d288_beta_interpretation_eligible"] = not sensitivity[
-                "d288_beta_interpretation_eligible"
+            sensitivity["d384_beta_interpretation_eligible"] = not sensitivity[
+                "d384_beta_interpretation_eligible"
             ]
-            with self.assertRaisesRegex(AnalysisBlockedError, "D288 beta"):
+            with self.assertRaisesRegex(AnalysisBlockedError, "D384 beta"):
                 validate_calibration_artifact(tampered)
 
             tampered = copy.deepcopy(payload)
@@ -730,9 +739,9 @@ class CalibrationAnalysisEndToEndTests(unittest.TestCase):
                 allow_synthetic=True,
             )
             summary = payload["participants"][0]["calibration"]
-            self.assertEqual(summary["completed_trial_count"], 288)
+            self.assertEqual(summary["completed_trial_count"], 384)
             self.assertEqual(summary["aborted_trial_count"], 1)
-            self.assertEqual(payload["source"]["total_record_count"], 289)
+            self.assertEqual(payload["source"]["total_record_count"], 385)
 
     def test_synthetic_input_requires_explicit_opt_in_and_creates_no_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
@@ -778,7 +787,7 @@ class CalibrationAnalysisSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(AnalysisBlockedError, "calibration-manifest"):
                 analyze_calibration(config, trials, bootstrap_replicates=2)
 
-    def test_manifest_binds_all_288_rows_and_artifacts(self) -> None:
+    def test_manifest_binds_all_384_rows_and_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             directory = Path(directory_name)
             manifest, config, config_sha, records, verification = (
@@ -804,7 +813,7 @@ class CalibrationAnalysisSafetyTests(unittest.TestCase):
                     require_record_manifest_hash=True,
                 )
             self.assertEqual(actual, hashlib.sha256(manifest.read_bytes()).hexdigest())
-            self.assertEqual(artifact_check.call_count, 288)
+            self.assertEqual(artifact_check.call_count, 384)
 
     def test_manifest_audits_aborted_attempt_before_completed_retry(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
@@ -841,7 +850,7 @@ class CalibrationAnalysisSafetyTests(unittest.TestCase):
                     require_record_manifest_hash=True,
                 )
             self.assertEqual(actual, hashlib.sha256(manifest.read_bytes()).hexdigest())
-            self.assertEqual(artifact_check.call_count, 289)
+            self.assertEqual(artifact_check.call_count, 385)
 
             aborted["stimulus_png_sha256"] = "0" * 64
             with (
@@ -925,7 +934,7 @@ class CalibrationAnalysisSafetyTests(unittest.TestCase):
                 for line in trials.read_text(encoding="utf-8").splitlines()
             ]
             held_out = copy.deepcopy(records[0])
-            held_out["trial_id"] = 289
+            held_out["trial_id"] = 385
             held_out["phase"] = "validation"
             records.append(held_out)
             trials.write_text(
@@ -975,7 +984,7 @@ class CalibrationAnalysisSafetyTests(unittest.TestCase):
     def test_exact_three_by_ninety_six_completed_trials_are_required(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             config, trials = _write_synthetic_fixture(Path(directory_name), drop_last=True)
-            with self.assertRaisesRegex(AnalysisBlockedError, "정확히 96"):
+            with self.assertRaisesRegex(AnalysisBlockedError, "96/192/96"):
                 analyze_calibration(
                     config,
                     trials,
@@ -1009,7 +1018,7 @@ class CalibrationAnalysisSafetyTests(unittest.TestCase):
                     allow_synthetic=True,
                 )
 
-    def test_c96_rejects_szafir_range_extrapolation(self) -> None:
+    def test_c192_rejects_szafir_range_extrapolation(self) -> None:
         with tempfile.TemporaryDirectory() as directory_name:
             config, trials = _write_synthetic_fixture(
                 Path(directory_name), viewing_distance_mm=400.0

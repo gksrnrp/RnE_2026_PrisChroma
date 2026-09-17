@@ -11,7 +11,7 @@ class PersonalCorrectionIntegrationTests(unittest.TestCase):
         estimate = load_threshold_estimate(
             EXAMPLE_PATHS["participant_thresholds"],
             participant_id="P_SYNTHETIC_01",
-            model="D288",
+            model="D384",
             stroke_width_px=3,
             development_mode=True,
         )

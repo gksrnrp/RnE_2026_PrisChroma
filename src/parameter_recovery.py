@@ -18,14 +18,15 @@ import numpy as np
 
 from experiment_design import szafir_relative_scale
 from implementation_provenance import implementation_hashes
+from calibration_design import CALIBRATION_WIDTH_TRIAL_COUNTS
 from psychometrics import (
     BootstrapResult,
     FitResult,
     direct_c80_probability,
-    fit_b96,
-    fit_b288,
-    fit_c96,
-    fit_d288,
+    fit_b192,
+    fit_b384,
+    fit_c192,
+    fit_d384,
     parametric_bootstrap,
 )
 
@@ -53,13 +54,13 @@ DEFAULT_FIXED_DELTA_E00_LEVELS = (
     12.0,
 )
 
-# 한 가지 '잘 맞는' 가상 참가자만 검사하지 않는다. 이름과 로그 범위상의
-# 위치만 사전에 고정하고, 실제 C80과 w는 매번 동결된 12수준 범위에서 유도한다.
-# 따라서 후보 수준을 바꿔도 예전의 편리한 진실값을 그대로 재사용하지 않는다.
+# 한 가지 '잘 맞는' 가상 참가자만 검사하지 않는다. C80의 로그 범위상 위치는
+# 동결 수준에서 유도하되, w는 수준 간격과 독립된 사전 고정값으로 둔다. 그래야
+# 범위를 좁힐 때 가상 참가자까지 저절로 예민해지는 자기충족적 검사를 막을 수 있다.
 RECOVERY_PROFILE_SPECIFICATIONS = (
-    {"name": "low-steep", "log_position": 0.10, "w_step_scale": 0.70},
-    {"name": "central", "log_position": 0.50, "w_step_scale": 1.00},
-    {"name": "high-shallow", "log_position": 0.90, "w_step_scale": 1.50},
+    {"name": "low-steep", "log_position": 0.10, "w": 0.225},
+    {"name": "central", "log_position": 0.50, "w": 0.321},
+    {"name": "high-shallow", "log_position": 0.90, "w": 0.482},
 )
 
 # 실제 참가자 데이터를 보기 전에 고정하는 수치 회복 판정 기준이다.
@@ -116,12 +117,11 @@ def _derive_recovery_profiles(
     """동결 수준 안에 모든 생성 C80이 놓이는 세 stress profile을 만든다.
 
     low/high를 단순 상수로 두면 사람이 실제로 고른 자극 범위와 무관한 쉬운
-    recovery가 될 수 있다. 여기서는 D288과 C96의 굵기 배율까지 고려해 모든
+    recovery가 될 수 있다. 여기서는 D384과 C192의 굵기 배율까지 고려해 모든
     진짜 C80이 표시 범위 안에 남는 기준-C80 구간을 먼저 계산한다.
     """
     levels = np.asarray(delta_e00_levels, dtype=float)
     log_levels = np.log(levels)
-    typical_log_step = float(np.median(np.diff(log_levels)))
     scale = _szafir_scale(
         reference_width=reference_width,
         direction_lab=direction_lab,
@@ -141,7 +141,7 @@ def _derive_recovery_profiles(
         and 0.0 < feasible_low < feasible_high
     ):
         raise ValueError(
-            "동결 delta_e00_levels가 D288/C96 stress profile의 C80 범위를 감싸지 못합니다."
+            "동결 delta_e00_levels가 D384/C192 stress profile의 C80 범위를 감싸지 못합니다."
         )
 
     low_log = math.log(feasible_low)
@@ -150,17 +150,19 @@ def _derive_recovery_profiles(
     for specification in RECOVERY_PROFILE_SPECIFICATIONS:
         position = float(specification["log_position"])
         c80_ref = math.exp(low_log + position * (high_log - low_log))
-        w = typical_log_step * float(specification["w_step_scale"])
+        # 자극 범위를 좁힐 때 가상 참가자까지 자동으로 예민해지는 자기충족적
+        # recovery를 막기 위해 w는 수준 간격과 독립된 사전 고정값을 쓴다.
+        w = float(specification["w"])
         profiles.append(
             {
                 "name": str(specification["name"]),
                 "c80_ref": c80_ref,
                 "w": w,
                 "log_position": position,
-                "w_step_scale": float(specification["w_step_scale"]),
+                "w_source": "fixed-before-range-selection",
                 "feasible_reference_c80_low": feasible_low,
                 "feasible_reference_c80_high": feasible_high,
-                "typical_log_level_step": typical_log_step,
+                "typical_log_level_step": float(np.median(np.diff(log_levels))),
             }
         )
     return tuple(profiles)
@@ -169,7 +171,7 @@ def _derive_recovery_profiles(
 def simulate_trials(
     *,
     widths: Sequence[float],
-    trials_per_width: int,
+    trials_per_width: int | Sequence[int],
     c80_at_width: Callable[[float], float],
     w: float,
     lapse: float,
@@ -183,7 +185,23 @@ def simulate_trials(
     생략한 기존 경로는 수치 단위시험용으로만 진짜 C80 주변 수준을 만들며,
     사람 실험 sampling plan의 recovery로 해석하면 안 된다.
     """
-    trials = _positive_integer(trials_per_width, "trials_per_width", minimum=12)
+    width_values = np.asarray(widths, dtype=float)
+    if isinstance(trials_per_width, int) and not isinstance(trials_per_width, bool):
+        trial_counts = tuple(
+            _positive_integer(trials_per_width, "trials_per_width", minimum=12)
+            for _ in width_values
+        )
+    elif isinstance(trials_per_width, Sequence) and not isinstance(
+        trials_per_width, (str, bytes)
+    ):
+        trial_counts = tuple(
+            _positive_integer(value, "trials_per_width", minimum=12)
+            for value in trials_per_width
+        )
+        if len(trial_counts) != len(width_values):
+            raise ValueError("trials_per_width는 widths와 같은 길이여야 합니다.")
+    else:
+        raise TypeError("trials_per_width는 정수 또는 굵기별 정수 배열이어야 합니다.")
     if delta_e00_levels is None:
         level_count = _positive_integer(levels, "levels", minimum=3)
         fixed_levels = None
@@ -200,11 +218,10 @@ def simulate_trials(
                 "delta_e00_levels는 엄격히 증가하는 양의 유한값 세 개 이상이어야 합니다."
             )
         level_count = int(fixed_levels.size)
-        if trials < level_count:
+        if any(trials < level_count for trials in trial_counts):
             raise ValueError("trials_per_width는 delta_e00_levels 수 이상이어야 합니다.")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed는 정수여야 합니다.")
-    width_values = np.asarray(widths, dtype=float)
     if (
         width_values.ndim != 1
         or width_values.size < 2
@@ -217,12 +234,12 @@ def simulate_trials(
     all_x: list[np.ndarray] = []
     all_correct: list[np.ndarray] = []
     all_widths: list[np.ndarray] = []
-    base_repeats, remainder = divmod(trials, level_count)
-    counts = np.full(level_count, base_repeats, dtype=int)
-    counts[:remainder] += 1
     log_offsets = np.linspace(-1.45, 1.45, level_count)
 
-    for width in width_values:
+    for width, trials in zip(width_values, trial_counts):
+        base_repeats, remainder = divmod(trials, level_count)
+        counts = np.full(level_count, base_repeats, dtype=int)
+        counts[:remainder] += 1
         threshold = float(c80_at_width(float(width)))
         if not math.isfinite(threshold) or threshold <= 0.0:
             raise ValueError("c80_at_width는 0보다 큰 유한한 C80을 반환해야 합니다.")
@@ -319,7 +336,7 @@ def _record_fit(
     if not fit.converged or not math.isfinite(fit.negative_log_likelihood):
         return
     accumulator["converged"] = int(accumulator["converged"]) + 1
-    parameter_name = "c80" if model in {"B96", "B288"} else "c80_ref"
+    parameter_name = "c80" if model in {"B192", "B384"} else "c80_ref"
     reference_errors = accumulator["c80_relative_errors"]
     held_out_errors = accumulator["held_out_relative_errors"]
     assert isinstance(reference_errors, list) and isinstance(held_out_errors, list)
@@ -330,7 +347,7 @@ def _record_fit(
     held_out_errors.append(
         _relative_error(float(fit.c80(held_out_width)), true_held_out)
     )
-    if model == "D288":
+    if model == "D384":
         beta_errors = accumulator["beta_absolute_errors"]
         assert isinstance(beta_errors, list)
         estimated_beta = float(fit.parameters["beta"])
@@ -360,9 +377,9 @@ def _accumulator_summary(
     summary = {
         "scenario": (
             "constant"
-            if model in {"B96", "B288"}
+            if model in {"B192", "B384"}
             else "log_width"
-            if model == "D288"
+            if model == "D384"
             else "szafir_relative"
         ),
         "attempted_fits": attempts,
@@ -377,7 +394,7 @@ def _accumulator_summary(
             held_out_errors, 0.90
         ),
     }
-    if model == "D288":
+    if model == "D384":
         summary.update(
             {
                 # 수렴 실패도 부호 회복 실패로 세어 낙관적 비율을 막는다.
@@ -446,7 +463,7 @@ def _metric_failure(
             reasons.append(
                 f"{scope}/{model}: {label} {rendered} {operator} {threshold:.3f}"
             )
-    if model == "D288":
+    if model == "D384":
         beta_comparisons = (
             (
                 "beta_sign_recovery_rate",
@@ -488,7 +505,7 @@ def _monte_carlo_recovery(
     *,
     seed: int,
     simulation_replicates: int,
-    trials_per_width: int,
+    trials_per_width: int | Sequence[int],
     widths: Sequence[float],
     reference_width: float,
     lapse: float,
@@ -510,7 +527,7 @@ def _monte_carlo_recovery(
         direction_lab=direction_lab,
         probability=probability,
     )
-    model_names = ("B96", "B288", "C96", "D288")
+    model_names = ("B192", "B384", "C192", "D384")
     accumulators = {
         model: _empty_accumulator() for model in model_names
     }
@@ -529,36 +546,36 @@ def _monte_carlo_recovery(
         c80_ref = float(profile["c80_ref"])
         w = float(profile["w"])
         truth = {
-            "B96": {
+            "B192": {
                 "c80_ref": c80_ref,
                 "w": w,
                 "c80_at_width": lambda _width, value=c80_ref: value,
             },
-            "B288": {
+            "B384": {
                 "c80_ref": c80_ref,
                 "w": w,
                 "c80_at_width": lambda _width, value=c80_ref: value,
             },
-            "D288": {
+            "D384": {
                 "c80_ref": c80_ref,
                 "beta": -0.48,
                 "w": w,
                 "c80_at_width": lambda width, value=c80_ref: value
                 * (width / reference_width) ** -0.48,
             },
-            "C96": {
+            "C192": {
                 "c80_ref": c80_ref,
                 "w": w,
                 "c80_at_width": lambda width, value=c80_ref: value
                 * scale(width),
             },
         }
-        # B96와 B288은 같은 상수 생성 자료를 공유해야 자료량만 다른 비교가 된다.
+        # B192와 B384은 같은 상수 생성 자료를 공유해야 자료량만 다른 비교가 된다.
         constant_x, constant_y, constant_s = simulate_trials(
             widths=widths,
             trials_per_width=trials_per_width,
-            c80_at_width=truth["B288"]["c80_at_width"],
-            w=truth["B288"]["w"],
+            c80_at_width=truth["B384"]["c80_at_width"],
+            w=truth["B384"]["w"],
             lapse=lapse,
             seed=seed + 10_000 + replicate * 3,
             delta_e00_levels=delta_e00_levels,
@@ -566,8 +583,8 @@ def _monte_carlo_recovery(
         log_x, log_y, log_s = simulate_trials(
             widths=widths,
             trials_per_width=trials_per_width,
-            c80_at_width=truth["D288"]["c80_at_width"],
-            w=truth["D288"]["w"],
+            c80_at_width=truth["D384"]["c80_at_width"],
+            w=truth["D384"]["w"],
             lapse=lapse,
             seed=seed + 10_001 + replicate * 3,
             delta_e00_levels=delta_e00_levels,
@@ -575,31 +592,31 @@ def _monte_carlo_recovery(
         szafir_x, szafir_y, szafir_s = simulate_trials(
             widths=widths,
             trials_per_width=trials_per_width,
-            c80_at_width=truth["C96"]["c80_at_width"],
-            w=truth["C96"]["w"],
+            c80_at_width=truth["C192"]["c80_at_width"],
+            w=truth["C192"]["w"],
             lapse=lapse,
             seed=seed + 10_002 + replicate * 3,
             delta_e00_levels=delta_e00_levels,
         )
         fits = {
-            "B96": fit_b96(
+            "B192": fit_b192(
                 constant_x,
                 constant_y,
                 constant_s,
                 reference_width=reference_width,
                 lapse=lapse,
             ),
-            "B288": fit_b288(
+            "B384": fit_b384(
                 constant_x, constant_y, constant_s, lapse=lapse
             ),
-            "D288": fit_d288(
+            "D384": fit_d384(
                 log_x,
                 log_y,
                 log_s,
                 reference_width=reference_width,
                 lapse=lapse,
             ),
-            "C96": fit_c96(
+            "C192": fit_c192(
                 szafir_x,
                 szafir_y,
                 szafir_s,
@@ -732,42 +749,42 @@ def _bootstrap_diagnostic(
 
 
 def _paired_reference_integrity(
-    b96_fit: FitResult,
-    c96_fit: FitResult,
-    b96_bootstrap: BootstrapResult,
-    c96_bootstrap: BootstrapResult,
+    b192_fit: FitResult,
+    c192_fit: FitResult,
+    b192_bootstrap: BootstrapResult,
+    c192_bootstrap: BootstrapResult,
     *,
     reference_width: float,
 ) -> dict:
-    """B96/C96가 같은 기준굵기 자료·난수열을 썼음을 수치적으로 증명한다."""
-    b_c80 = tuple(b96_bootstrap.estimates.get("c80", ()))
-    c_c80 = tuple(c96_bootstrap.estimates.get("c80_ref", ()))
-    b_w = tuple(b96_bootstrap.estimates.get("w", ()))
-    c_w = tuple(c96_bootstrap.estimates.get("w", ()))
+    """B192/C192가 같은 기준굵기 자료·난수열을 썼음을 수치적으로 증명한다."""
+    b_c80 = tuple(b192_bootstrap.estimates.get("c80", ()))
+    c_c80 = tuple(c192_bootstrap.estimates.get("c80_ref", ()))
+    b_w = tuple(b192_bootstrap.estimates.get("w", ()))
+    c_w = tuple(c192_bootstrap.estimates.get("w", ()))
     checks = {
         "same_reference_width": bool(
-            b96_fit.reference_width == c96_fit.reference_width == reference_width
+            b192_fit.reference_width == c192_fit.reference_width == reference_width
         ),
-        "same_input_trial_count": b96_fit.n_trials == c96_fit.n_trials,
+        "same_input_trial_count": b192_fit.n_trials == c192_fit.n_trials,
         "same_point_c80": math.isclose(
-            b96_fit.parameters["c80"], c96_fit.parameters["c80_ref"],
+            b192_fit.parameters["c80"], c192_fit.parameters["c80_ref"],
             rel_tol=0.0, abs_tol=1e-12,
         ),
         "same_point_w": math.isclose(
-            b96_fit.parameters["w"], c96_fit.parameters["w"],
+            b192_fit.parameters["w"], c192_fit.parameters["w"],
             rel_tol=0.0, abs_tol=1e-12,
         ),
-        "same_bootstrap_seed": b96_bootstrap.seed == c96_bootstrap.seed,
+        "same_bootstrap_seed": b192_bootstrap.seed == c192_bootstrap.seed,
         "same_successful_replicates": (
-            b96_bootstrap.successful_replicates
-            == c96_bootstrap.successful_replicates
+            b192_bootstrap.successful_replicates
+            == c192_bootstrap.successful_replicates
         ),
         "same_bootstrap_c80_draws": b_c80 == c_c80 and bool(b_c80),
         "same_bootstrap_w_draws": b_w == c_w and bool(b_w),
     }
     return {
         "rule": (
-            "B96 and C96 use the identical reference-width trials and bootstrap "
+            "B192 and C192 use the identical reference-width trials and bootstrap "
             "uniform stream; their reference fits and draws must match exactly"
         ),
         "checks": checks,
@@ -820,7 +837,7 @@ def _assess_recovery(
 def run_parameter_recovery(
     *,
     seed: int = 20260914,
-    trials_per_width: int = 96,
+    trials_per_width: int | Sequence[int] = CALIBRATION_WIDTH_TRIAL_COUNTS,
     bootstrap_replicates: int = 40,
     simulation_replicates: int = 100,
     delta_e00_levels: Sequence[float] = DEFAULT_FIXED_DELTA_E00_LEVELS,
@@ -833,10 +850,24 @@ def run_parameter_recovery(
 ) -> dict:
     """상수·log-width·Szafir 생성 시나리오에서 알려진 모수를 회복한다.
 
-    결과는 연구 결론이 아니라 분석 코드 점검 자료다. B96과 C96은 기준 굵기
-    시행만, B288과 D288은 세 굵기 전체 시행을 사용한다.
+    결과는 연구 결론이 아니라 분석 코드 점검 자료다. B192과 C192은 기준 굵기
+    시행만, B384과 D384은 세 굵기 전체 시행을 사용한다.
     """
-    trials = _positive_integer(trials_per_width, "trials_per_width", minimum=12)
+    if isinstance(trials_per_width, int) and not isinstance(trials_per_width, bool):
+        trials: int | tuple[int, ...] = _positive_integer(
+            trials_per_width, "trials_per_width", minimum=12
+        )
+    elif isinstance(trials_per_width, Sequence) and not isinstance(
+        trials_per_width, (str, bytes)
+    ):
+        trials = tuple(
+            _positive_integer(value, "trials_per_width", minimum=12)
+            for value in trials_per_width
+        )
+        if len(trials) != 3:
+            raise ValueError("trials_per_width에는 굵기별 시행 수 세 개가 필요합니다.")
+    else:
+        raise TypeError("trials_per_width는 정수 또는 굵기별 정수 배열이어야 합니다.")
     bootstrap_count = _positive_integer(
         bootstrap_replicates, "bootstrap_replicates"
     )
@@ -900,7 +931,7 @@ def run_parameter_recovery(
     central_c80 = float(central_profile["c80_ref"])
     central_w = float(central_profile["w"])
 
-    # 1) 폭과 무관한 상수 C80: B96/B288의 대표 회복을 확인한다.
+    # 1) 폭과 무관한 상수 C80: B192/B384의 대표 회복을 확인한다.
     constant_truth = {"c80": central_c80, "w": central_w, "lapse": lapse}
     x_constant, y_constant, s_constant = simulate_trials(
         widths=widths,
@@ -911,16 +942,16 @@ def run_parameter_recovery(
         seed=seed,
         delta_e00_levels=fixed_levels,
     )
-    b96 = fit_b96(
+    b192 = fit_b192(
         x_constant,
         y_constant,
         s_constant,
         reference_width=reference,
         lapse=lapse,
     )
-    b288 = fit_b288(x_constant, y_constant, s_constant, lapse=lapse)
-    b288_bootstrap = parametric_bootstrap(
-        b288,
+    b384 = fit_b384(x_constant, y_constant, s_constant, lapse=lapse)
+    b384_bootstrap = parametric_bootstrap(
+        b384,
         x_constant,
         y_constant,
         s_constant,
@@ -928,7 +959,7 @@ def run_parameter_recovery(
         seed=seed + 1000,
     )
 
-    # 2) 굵기 의존 C80: beta 부호를 강제하지 않은 D288 회복을 확인한다.
+    # 2) 굵기 의존 C80: beta 부호를 강제하지 않은 D384 회복을 확인한다.
     log_truth = {
         "c80_ref": central_c80,
         "beta": -0.48,
@@ -948,11 +979,11 @@ def run_parameter_recovery(
         seed=seed + 1,
         delta_e00_levels=fixed_levels,
     )
-    d288 = fit_d288(
+    d384 = fit_d384(
         x_log, y_log, s_log, reference_width=reference, lapse=lapse
     )
     d_bootstrap = parametric_bootstrap(
-        d288,
+        d384,
         x_log,
         y_log,
         s_log,
@@ -971,7 +1002,7 @@ def run_parameter_recovery(
         seed=seed + 2,
         delta_e00_levels=fixed_levels,
     )
-    c96 = fit_c96(
+    c192 = fit_c192(
         x_szafir,
         y_szafir,
         s_szafir,
@@ -979,8 +1010,8 @@ def run_parameter_recovery(
         relative_scale=scale,
         lapse=lapse,
     )
-    # 주 비교 B96/C96는 반드시 동일한 기준굵기 96회에서 출발해야 한다.
-    paired_b96 = fit_b96(
+    # 주 비교 B192/C192는 반드시 동일한 기준굵기 192회에서 출발해야 한다.
+    paired_b192 = fit_b192(
         x_szafir,
         y_szafir,
         s_szafir,
@@ -988,15 +1019,15 @@ def run_parameter_recovery(
         lapse=lapse,
     )
     c_bootstrap = parametric_bootstrap(
-        c96,
+        c192,
         x_szafir,
         y_szafir,
         s_szafir,
         replicates=bootstrap_count,
         seed=seed + 1002,
     )
-    paired_b96_bootstrap = parametric_bootstrap(
-        paired_b96,
+    paired_b192_bootstrap = parametric_bootstrap(
+        paired_b192,
         x_szafir,
         y_szafir,
         s_szafir,
@@ -1020,31 +1051,31 @@ def run_parameter_recovery(
     # 개별 백분위 구간까지 동시에 진실값을 감싸라고 요구하지 않는다.
     reference_truth = {reference: central_c80}
     representative_models = {
-        "B96": _bootstrap_diagnostic(
-            paired_b96_bootstrap,
+        "B192": _bootstrap_diagnostic(
+            paired_b192_bootstrap,
             evaluation_truth=reference_truth,
             required_parameter_truth={"c80": central_c80},
         ),
-        "B288": _bootstrap_diagnostic(
-            b288_bootstrap,
+        "B384": _bootstrap_diagnostic(
+            b384_bootstrap,
             evaluation_truth=reference_truth,
             required_parameter_truth={"c80": central_c80},
         ),
-        "C96": _bootstrap_diagnostic(
+        "C192": _bootstrap_diagnostic(
             c_bootstrap,
             evaluation_truth=reference_truth,
             required_parameter_truth={"c80_ref": central_c80},
         ),
-        "D288": _bootstrap_diagnostic(
+        "D384": _bootstrap_diagnostic(
             d_bootstrap,
             evaluation_truth=reference_truth,
             required_parameter_truth={"c80_ref": central_c80, "beta": -0.48},
         ),
     }
     paired_integrity = _paired_reference_integrity(
-        paired_b96,
-        c96,
-        paired_b96_bootstrap,
+        paired_b192,
+        c192,
+        paired_b192_bootstrap,
         c_bootstrap,
         reference_width=reference,
     )
@@ -1054,7 +1085,7 @@ def run_parameter_recovery(
         if diagnostic["passed"] is not True
     ]
     if paired_integrity["passed"] is not True:
-        bootstrap_reasons.append("B96/C96 paired-reference bootstrap 무결성 실패")
+        bootstrap_reasons.append("B192/C192 paired-reference bootstrap 무결성 실패")
     representative_bootstrap = {
         "models": representative_models,
         "paired_reference_integrity": paired_integrity,
@@ -1068,7 +1099,7 @@ def run_parameter_recovery(
         bootstrap_replicates=bootstrap_count,
     )
 
-    all_fits = (b96, b288, d288, c96, paired_b96)
+    all_fits = (b192, b384, d384, c192, paired_b192)
     provenance = implementation_hashes("parameter_recovery")
     return {
         "artifact_type": "synthetic_parameter_recovery",
@@ -1095,7 +1126,7 @@ def run_parameter_recovery(
             if experiment_config_sha256 is not None
             else None
         ),
-        "trials_per_width": trials,
+        "trials_per_width": list(trials) if isinstance(trials, tuple) else trials,
         "bootstrap_replicates": bootstrap_count,
         "simulation_replicates": simulation_count,
         "fixed_lapse": lapse,
@@ -1119,17 +1150,17 @@ def run_parameter_recovery(
         "constant_scenario": {
             "truth": constant_truth,
             "fits": {
-                "B96": _fit_summary(b96, widths),
-                "B288": _fit_summary(b288, widths),
+                "B192": _fit_summary(b192, widths),
+                "B384": _fit_summary(b384, widths),
             },
             "bootstrap": {
-                "B288": representative_models["B288"],
+                "B384": representative_models["B384"],
             },
         },
         "log_width_scenario": {
             "truth": log_truth,
-            "fits": {"D288": _fit_summary(d288, widths)},
-            "bootstrap": representative_models["D288"],
+            "fits": {"D384": _fit_summary(d384, widths)},
+            "bootstrap": representative_models["D384"],
         },
         "szafir_relative_scenario": {
             "truth": szafir_truth,
@@ -1137,12 +1168,12 @@ def run_parameter_recovery(
             "source_probability_coordinate": probability,
             "relative_scale": {f"{width:.8g}": scale(width) for width in widths},
             "fits": {
-                "B96_same_reference_trials": _fit_summary(paired_b96, widths),
-                "C96": _fit_summary(c96, widths),
+                "B192_same_reference_trials": _fit_summary(paired_b192, widths),
+                "C192": _fit_summary(c192, widths),
             },
             "bootstrap": {
-                "B96": representative_models["B96"],
-                "C96": representative_models["C96"],
+                "B192": representative_models["B192"],
+                "C192": representative_models["C192"],
                 "paired_reference_integrity": paired_integrity,
             },
         },
@@ -1154,7 +1185,13 @@ def _parser() -> argparse.ArgumentParser:
         description="합성 direct-C80 자료로 결정론적 parameter recovery를 실행합니다."
     )
     parser.add_argument("--seed", type=int, default=20260914)
-    parser.add_argument("--trials-per-width", type=int, default=96)
+    parser.add_argument(
+        "--trials-per-width",
+        type=int,
+        nargs="+",
+        default=list(CALIBRATION_WIDTH_TRIAL_COUNTS),
+        help="굵기 순서별 시행 수(사람 설계는 96 192 96)",
+    )
     parser.add_argument("--bootstrap-replicates", type=int, default=40)
     parser.add_argument("--simulation-replicates", type=int, default=100)
     parser.add_argument(
@@ -1192,7 +1229,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             assert_schedule_config(config)
             recovery_arguments.update(
                 {
-                    "trials_per_width": int(config["calibration"]["trials_per_width"]),
+                    "trials_per_width": tuple(config["calibration"]["trials_per_width"]),
                     "delta_e00_levels": tuple(config["sampling"]["delta_e00_levels"]),
                     "widths_deg": tuple(
                         row["width_deg"] for row in config["calibration"]["widths"]

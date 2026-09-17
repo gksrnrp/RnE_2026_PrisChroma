@@ -21,6 +21,15 @@ import threading
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from calibration_design import (
+    CALIBRATION_MODELS,
+    CALIBRATION_RANDOMIZATION,
+    CALIBRATION_TOTAL_TRIALS,
+    block_count_from_config,
+    block_trial_count,
+    trial_counts_from_config,
+    width_block_trial_counts,
+)
 from experiment_design import (
     SZAFIR_LINE_MAX_VISUAL_ANGLE_DEG,
     SZAFIR_LINE_MIN_VISUAL_ANGLE_DEG,
@@ -147,11 +156,19 @@ def _validated_journal_config(config: Mapping[str, Any]) -> Mapping[str, Any]:
     validation_ids = session_ids.get("validation")
     if not isinstance(practice_id, str):
         raise CollectionBlockedError("journal.session_ids.practice가 필요합니다.")
-    if not isinstance(calibration_ids, Mapping) or set(calibration_ids) != {
-        "1", "2", "3", "4"
-    }:
+    try:
+        calibration_block_count = block_count_from_config(config)
+    except ValueError as error:
+        raise CollectionBlockedError(str(error)) from error
+    expected_calibration_keys = {
+        str(index) for index in range(1, calibration_block_count + 1)
+    }
+    if (
+        not isinstance(calibration_ids, Mapping)
+        or set(calibration_ids) != expected_calibration_keys
+    ):
         raise CollectionBlockedError(
-            "journal.session_ids.calibration에는 block 1~4가 정확히 필요합니다."
+            "journal.session_ids.calibration에는 동결한 calibration block이 정확히 필요합니다."
         )
     if not isinstance(validation_ids, Mapping) or set(validation_ids) != {
         "V01", "V02", "V03"
@@ -161,7 +178,10 @@ def _validated_journal_config(config: Mapping[str, Any]) -> Mapping[str, Any]:
         )
     frozen_ids = [
         practice_id,
-        *(calibration_ids[key] for key in ("1", "2", "3", "4")),
+        *(
+            calibration_ids[str(index)]
+            for index in range(1, calibration_block_count + 1)
+        ),
         *(validation_ids[key] for key in ("V01", "V02", "V03")),
     ]
     if any(
@@ -221,8 +241,14 @@ def expected_collection_session_id(
             raise CollectionBlockedError("practice에는 block 식별자를 지정하지 않습니다.")
         return str(session_ids["practice"])
     if phase == "calibration":
-        if session_block not in {1, 2, 3, 4} or validation_block_id is not None:
-            raise CollectionBlockedError("calibration session block은 1~4여야 합니다.")
+        block_count = block_count_from_config(config)
+        if (
+            session_block not in set(range(1, block_count + 1))
+            or validation_block_id is not None
+        ):
+            raise CollectionBlockedError(
+                f"calibration session block은 1~{block_count}여야 합니다."
+            )
         return str(session_ids["calibration"][str(session_block)])
     if phase == "validation":
         if session_block is not None or validation_block_id not in {"V01", "V02", "V03"}:
@@ -580,10 +606,10 @@ def assert_schedule_config(config: Mapping[str, Any]) -> None:
     model_plan = _value_at(config, "model_plan")
     if not isinstance(model_plan, Mapping):
         raise CollectionBlockedError("model_plan은 객체여야 합니다.")
-    if model_plan.get("models") != ["B96", "B288", "C96", "D288"]:
-        raise CollectionBlockedError("model_plan.models는 B96/B288/C96/D288 순서여야 합니다.")
+    if tuple(model_plan.get("models", ())) != CALIBRATION_MODELS:
+        raise CollectionBlockedError("model_plan.models는 B192/B384/C192/D384 순서여야 합니다.")
     if model_plan.get("include_szafir_transfer") is not True:
-        raise CollectionBlockedError("C96 검증에는 include_szafir_transfer=true가 필요합니다.")
+        raise CollectionBlockedError("C192 검증에는 include_szafir_transfer=true가 필요합니다.")
     probability = model_plan.get("szafir_probability_coordinate")
     if (
         isinstance(probability, bool)
@@ -595,9 +621,13 @@ def assert_schedule_config(config: Mapping[str, Any]) -> None:
             "model_plan.szafir_probability_coordinate는 0과 1 사이여야 합니다."
         )
 
-    trials_per_width = _require_concrete(config, "calibration.trials_per_width")
-    if trials_per_width != 96:
-        raise CollectionBlockedError("동결 설계는 굵기당 정확히 96시행이어야 합니다.")
+    try:
+        trial_counts_from_config(config)
+        block_count_from_config(config)
+        block_trial_count(config)
+        width_block_trial_counts(config)
+    except ValueError as error:
+        raise CollectionBlockedError(str(error)) from error
 
     levels = _require_concrete(config, "sampling.delta_e00_levels")
     if (
@@ -614,11 +644,10 @@ def assert_schedule_config(config: Mapping[str, Any]) -> None:
         raise CollectionBlockedError("sampling.delta_e00_levels는 오름차순이어야 합니다.")
     if (
         _value_at(config, "sampling.randomization")
-        != "balanced-4-session-blocks-within-block-shuffle"
+        != CALIBRATION_RANDOMIZATION
     ):
         raise CollectionBlockedError(
-            "sampling.randomization은 "
-            "balanced-4-session-blocks-within-block-shuffle여야 합니다."
+            f"sampling.randomization은 {CALIBRATION_RANDOMIZATION}여야 합니다."
         )
 
     if _value_at(config, "privacy.approved") is not True:
@@ -721,12 +750,11 @@ def build_balanced_schedule(
     config_sha256: str | None = None,
     git_commit: str | None = None,
 ) -> list[dict[str, Any]]:
-    """3굵기×12수준×4위치×odd색을 4개 세션 블록에 균형화한다.
+    """96/192/96 혼합배정을 4개 또는 6개 세션 블록에 균형화한다.
 
-    각 ``굵기×ΔE00`` 셀에는 odd 위치 1~4와 odd 색 a/b의 조합이 한 번씩
-    들어가므로 셀당 8회, 굵기당 96회가 된다. 각 블록에는 셀마다 두 조합,
-    굵기마다 24회, 총 72회가 들어가며 블록 내부 순서만 ``seed``로
-    결정론적으로 무작위화한다. 실제 session_id는 실행 시 블록에 매핑한다.
+    바깥 굵기의 각 ``굵기×ΔE00`` 셀은 위치 4×odd색 2의 8조합을 한 번씩,
+    기준 굵기는 두 번씩 포함한다. 동결한 block 수에 각 굵기를 균등 배정하고
+    block 내부만 결정론적으로 무작위화한다.
     """
 
     assert_schedule_config(config)
@@ -743,19 +771,32 @@ def build_balanced_schedule(
             raise ValueError("git_commit은 40자리 소문자 16진수여야 합니다.")
 
     widths = config["calibration"]["widths"]
+    trials_by_width = trial_counts_from_config(config)
+    block_count = block_count_from_config(config)
     levels = [float(value) for value in config["sampling"]["delta_e00_levels"]]
     observer = config["observer_profile"]
     stimulus_family_id = config["color_design"]["stimulus_family_id"]
-    blocks: dict[int, list[dict[str, Any]]] = {index: [] for index in range(1, 5)}
+    blocks: dict[int, list[dict[str, Any]]] = {
+        index: [] for index in range(1, block_count + 1)
+    }
     for width_index, width in enumerate(widths, start=1):
+        repeats_per_cell = trials_by_width[width_index - 1] // (len(levels) * 8)
         for level_index, level in enumerate(levels, start=1):
-            cell_shift = ((width_index - 1) * len(levels) + level_index - 1) % 4
-            for session_block in range(1, 5):
-                combinations = (
-                    ((session_block - 1 + cell_shift) % 4 + 1, "a"),
-                    ((session_block + cell_shift) % 4 + 1, "b"),
-                )
-                for correct_position, odd_color in combinations:
+            combinations = [
+                (position, odd_color)
+                for position in range(1, 5)
+                for odd_color in ("a", "b")
+            ]
+            for repeat_index in range(repeats_per_cell):
+                for combination_index, (correct_position, odd_color) in enumerate(
+                    combinations
+                ):
+                    assignment_index = (
+                        (level_index - 1) * len(combinations)
+                        + combination_index
+                        + repeat_index * 3
+                    )
+                    session_block = assignment_index % block_count + 1
                     blocks[session_block].append(
                         {
                             "session_block": session_block,
@@ -783,12 +824,35 @@ def build_balanced_schedule(
                     )
 
     rows: list[dict[str, Any]] = []
-    for session_block in range(1, 5):
+    expected_block_trials = block_trial_count(config)
+    expected_width_block = width_block_trial_counts(config)
+    for session_block in range(1, block_count + 1):
         block = blocks[session_block]
+        if len(block) != expected_block_trials:
+            raise CollectionBlockedError(
+                f"calibration block {session_block} 시행 수가 {expected_block_trials}이 아닙니다."
+            )
+        observed_by_width = {
+            int(width["width_px"]): sum(
+                int(row["stroke_width_px"]) == int(width["width_px"])
+                for row in block
+            )
+            for width in widths
+        }
+        expected_by_width = {
+            int(width["width_px"]): expected_width_block[index]
+            for index, width in enumerate(widths)
+        }
+        if observed_by_width != expected_by_width:
+            raise CollectionBlockedError(
+                f"calibration block {session_block} 굵기별 균형이 잘못됐습니다."
+            )
         random.Random(seed + session_block * 1_000_003).shuffle(block)
         rows.extend(block)
     for trial_id, row in enumerate(rows, start=1):
         row["trial_id"] = trial_id
+    if len(rows) != CALIBRATION_TOTAL_TRIALS:
+        raise CollectionBlockedError("calibration schedule은 정확히 384시행이어야 합니다.")
     return rows
 
 

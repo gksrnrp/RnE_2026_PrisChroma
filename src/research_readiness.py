@@ -27,6 +27,7 @@ from typing import Any, Iterable, Sequence
 from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 
+from calibration_design import block_count_from_config
 from implementation_provenance import (
     ImplementationProvenanceError,
     verify_implementation_hashes,
@@ -300,6 +301,7 @@ def _runtime_artifact_gate(
     evidence: list[Path] = []
     try:
         if phase == "calibration":
+            config = _read_json(config_path)
             calibration = _find_compiled_manifest(
                 root,
                 artifact_type="compiled_pixel_stimulus_manifest",
@@ -319,7 +321,7 @@ def _runtime_artifact_gate(
                 repo_root=root,
                 calibration_manifest_path=calibration,
             )
-            for block in range(1, 5):
+            for block in range(1, block_count_from_config(config) + 1):
                 prepare_collection(
                     config_path=config_path,
                     manifest_path=calibration,
@@ -1383,7 +1385,7 @@ def _valid_parameter_recovery_integrity(
         or set(profile_results) != expected_profiles
     ):
         return False
-    expected_models = {"B96", "B288", "C96", "D288"}
+    expected_models = {"B192", "B384", "C192", "D384"}
     for name in expected_profiles:
         result = profile_results[name]
         if (
@@ -1410,9 +1412,9 @@ def _valid_parameter_recovery_integrity(
         required = coverage.get("required_parameters") if isinstance(coverage, dict) else None
         expected_parameters = (
             {"c80_ref", "beta"}
-            if model == "D288"
+            if model == "D384"
             else {"c80_ref"}
-            if model == "C96"
+            if model == "C192"
             else {"c80"}
         )
         if (
@@ -1482,7 +1484,7 @@ def _check_parameter_recovery(root: Path) -> CheckResult:
                     "levels": tuple(float(value) for value in levels),
                     "widths_deg": widths_deg,
                     "reference_width_deg": widths_deg[1],
-                    "trials_per_width": int(config["calibration"]["trials_per_width"]),
+                    "trials_per_width": tuple(config["calibration"]["trials_per_width"]),
                     "fixed_lapse": float(config["observer_profile"]["fixed_lapse"]),
                     "direction_lab": tuple(
                         float(value) for value in config["color_design"]["direction_lab"]
@@ -1529,7 +1531,7 @@ def _check_parameter_recovery(root: Path) -> CheckResult:
         try:
             result_widths = tuple(float(value) for value in payload["widths_deg"])
             result_reference = float(payload["reference_width_deg"])
-            result_trials = int(payload["trials_per_width"])
+            result_trials = tuple(int(value) for value in payload["trials_per_width"])
             result_simulations = int(payload["simulation_replicates"])
             result_bootstrap = int(payload["bootstrap_replicates"])
             result_lapse = float(payload["fixed_lapse"])

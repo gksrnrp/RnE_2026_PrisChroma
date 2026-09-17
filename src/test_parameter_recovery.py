@@ -8,6 +8,7 @@ import numpy as np
 from implementation_provenance import implementation_hashes
 from parameter_recovery import (
     RECOVERY_CRITERIA,
+    _derive_recovery_profiles,
     main,
     run_parameter_recovery,
     simulate_trials,
@@ -64,6 +65,25 @@ class SyntheticTrialTests(unittest.TestCase):
 
 
 class ParameterRecoveryTests(unittest.TestCase):
+    def test_virtual_observer_slopes_do_not_shrink_with_level_range(self) -> None:
+        common = {
+            "widths": (0.06, 0.18, 0.30),
+            "reference_width": 0.18,
+            "direction_lab": (0.0, 1.0, 0.0),
+            "probability": 0.5,
+        }
+        wide = _derive_recovery_profiles(
+            delta_e00_levels=np.geomspace(0.35, 12.0, 12), **common
+        )
+        narrow = _derive_recovery_profiles(
+            delta_e00_levels=np.geomspace(1.0, 6.0, 12), **common
+        )
+        self.assertEqual([row["w"] for row in wide], [row["w"] for row in narrow])
+        self.assertEqual(
+            {row["w_source"] for row in wide + narrow},
+            {"fixed-before-range-selection"},
+        )
+
     def test_small_recovery_is_diagnostic_but_cannot_pass_human_gate(self) -> None:
         result = run_parameter_recovery(
             seed=20260914,
@@ -116,13 +136,13 @@ class ParameterRecoveryTests(unittest.TestCase):
         )
         self.assertEqual(
             set(result["representative_bootstrap"]["models"]),
-            {"B96", "B288", "C96", "D288"},
+            {"B192", "B384", "C192", "D384"},
         )
         self.assertTrue(
             result["representative_bootstrap"]["paired_reference_integrity"]["passed"]
         )
 
-        d_fit = result["log_width_scenario"]["fits"]["D288"]
+        d_fit = result["log_width_scenario"]["fits"]["D384"]
         d_truth = result["log_width_scenario"]["truth"]
         self.assertAlmostEqual(
             d_fit["parameters"]["c80_ref"], d_truth["c80_ref"], delta=0.8
@@ -134,7 +154,7 @@ class ParameterRecoveryTests(unittest.TestCase):
             result["log_width_scenario"]["bootstrap"]["requested_replicates"], 4
         )
 
-        c_fit = result["szafir_relative_scenario"]["fits"]["C96"]
+        c_fit = result["szafir_relative_scenario"]["fits"]["C192"]
         c_truth = result["szafir_relative_scenario"]["truth"]
         self.assertAlmostEqual(
             c_fit["parameters"]["c80_ref"], c_truth["c80_ref"], delta=0.8
@@ -151,6 +171,13 @@ class ParameterRecoveryTests(unittest.TestCase):
         self.assertEqual(result["experiment_config_sha256"], "a" * 64)
         self.assertEqual(result["bootstrap_replicates"], 2)
         self.assertEqual(result["fixed_lapse"], 0.07)
+        self.assertEqual(result["trials_per_width"], [96, 192, 96])
+        self.assertEqual(
+            result["constant_scenario"]["fits"]["B192"]["n_trials"], 192
+        )
+        self.assertEqual(
+            result["constant_scenario"]["fits"]["B384"]["n_trials"], 384
+        )
         self.assertEqual(result["sampling_plan"]["status"], "frozen_human_config_bound")
         self.assertFalse(result["sampling_plan"]["must_rerun_with_frozen_human_config"])
         self.assertFalse(result["research_conclusion_allowed"])
@@ -162,6 +189,8 @@ class ParameterRecoveryTests(unittest.TestCase):
                 "--seed",
                 "99",
                 "--trials-per-width",
+                "96",
+                "192",
                 "96",
                 "--bootstrap-replicates",
                 "2",

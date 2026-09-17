@@ -212,13 +212,13 @@ def _load_human_thresholds(path: Path) -> dict[str, Any]:
             raise ThresholdAdapterError(
                 f"{participant_id}: calibration 공통-w 해석이 수치와 다릅니다."
             )
-        d288_rows = [
-            row for row in participant["predictions"] if row["model"] == "D288"
+        d384_rows = [
+            row for row in participant["predictions"] if row["model"] == "D384"
         ]
-        d288_ready = bool(
-            len(d288_rows) == 1
-            and d288_rows[0]["fit_converged"]
-            and float(d288_rows[0]["bootstrap_convergence_rate"])
+        d384_ready = bool(
+            len(d384_rows) == 1
+            and d384_rows[0]["fit_converged"]
+            and float(d384_rows[0]["bootstrap_convergence_rate"])
             >= MINIMUM_BOOTSTRAP_CONVERGENCE_RATE
         )
         if not comparison_resolved:
@@ -227,18 +227,18 @@ def _load_human_thresholds(path: Path) -> dict[str, Any]:
         elif free_w_preferred:
             expected_eligible = False
             expected_reason = "free_w_lower_aic"
-        elif not d288_ready:
+        elif not d384_ready:
             expected_eligible = False
-            expected_reason = "d288_numerically_incomplete"
+            expected_reason = "d384_numerically_incomplete"
         else:
             expected_eligible = True
-            expected_reason = "shared_w_retained_and_d288_numerically_complete"
+            expected_reason = "shared_w_retained_and_d384_numerically_complete"
         if (
-            sensitivity["d288_beta_interpretation_eligible"] != expected_eligible
-            or sensitivity["d288_beta_interpretation_reason"] != expected_reason
+            sensitivity["d384_beta_interpretation_eligible"] != expected_eligible
+            or sensitivity["d384_beta_interpretation_reason"] != expected_reason
         ):
             raise ThresholdAdapterError(
-                f"{participant_id}: D288 beta 해석 가능 플래그가 공통-w 감사와 다릅니다."
+                f"{participant_id}: D384 beta 해석 가능 플래그가 공통-w 감사와 다릅니다."
             )
         block_ids: set[str] = set()
         session_ids: set[str] = set()

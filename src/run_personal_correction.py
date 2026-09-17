@@ -187,7 +187,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--thresholds", required=True)
     parser.add_argument("--participant", required=True)
     parser.add_argument(
-        "--model", required=True, choices=["B96", "B288", "C96", "D288"]
+        "--model", required=True, choices=["B192", "B384", "C192", "D384"]
     )
     parser.add_argument("--stroke-width-px", required=True, type=int)
     parser.add_argument("--original-min", required=True, type=float)

@@ -61,7 +61,7 @@
         "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "stimulus_family_id": {"type": "string", "minLength": 1},
         "renderer_id": {"type": "string", "minLength": 1},
-        "total_record_count": {"type": "integer", "minimum": 288}
+        "total_record_count": {"type": "integer", "minimum": 384}
       }
     },
     "analysis_specification": {
@@ -69,6 +69,8 @@
       "additionalProperties": false,
       "required": [
         "models",
+        "calibration_trials_per_width",
+        "session_block_count",
         "reference_width_policy",
         "confidence",
         "bootstrap_replicates",
@@ -80,8 +82,10 @@
       ],
       "properties": {
         "models": {
-          "const": ["B96", "B288", "C96", "D288"]
+          "const": ["B192", "B384", "C192", "D384"]
         },
+        "calibration_trials_per_width": {"const": [96, 192, 96]},
+        "session_block_count": {"enum": [4, 6]},
         "reference_width_policy": {
           "const": "middle_of_three_sorted_calibration_widths"
         },
@@ -110,6 +114,26 @@
     }
   },
   "$defs": {
+    "outer_width_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stroke_width_px", "stroke_width_deg", "completed_trials"],
+      "properties": {
+        "stroke_width_px": {"type": "integer", "minimum": 1},
+        "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+        "completed_trials": {"const": 96}
+      }
+    },
+    "reference_width_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stroke_width_px", "stroke_width_deg", "completed_trials"],
+      "properties": {
+        "stroke_width_px": {"type": "integer", "minimum": 1},
+        "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+        "completed_trials": {"const": 192}
+      }
+    },
     "implementation_hashes": {
       "type": "object",
       "minProperties": 1,
@@ -179,8 +203,8 @@
         "held_out_candidate_predictions"
       ],
       "properties": {
-        "model": {"enum": ["B96", "B288", "C96", "D288"]},
-        "training_trial_count": {"enum": [96, 288]},
+        "model": {"enum": ["B192", "B384", "C192", "D384"]},
+        "training_trial_count": {"enum": [192, 384]},
         "fit": {
           "type": "object",
           "additionalProperties": false,
@@ -290,9 +314,9 @@
         "comparison_resolved",
         "free_w_preferred",
         "interpretation",
-        "d288_beta_interpretation_eligible",
-        "d288_beta_interpretation_reason",
-        "primary_c96_vs_b96_affected"
+        "d384_beta_interpretation_eligible",
+        "d384_beta_interpretation_reason",
+        "primary_c192_vs_b192_affected"
       ],
       "properties": {
         "criterion": {"const": "AIC"},
@@ -312,16 +336,16 @@
             "unresolved_numerical_convergence"
           ]
         },
-        "d288_beta_interpretation_eligible": {"type": "boolean"},
-        "d288_beta_interpretation_reason": {
+        "d384_beta_interpretation_eligible": {"type": "boolean"},
+        "d384_beta_interpretation_reason": {
           "enum": [
-            "shared_w_retained_and_d288_numerically_complete",
+            "shared_w_retained_and_d384_numerically_complete",
             "shared_free_w_comparison_unresolved",
             "free_w_lower_aic",
-            "d288_numerically_incomplete"
+            "d384_numerically_incomplete"
           ]
         },
-        "primary_c96_vs_b96_affected": {"const": false}
+        "primary_c192_vs_b192_affected": {"const": false}
       }
     },
     "participant": {
@@ -364,28 +388,24 @@
             "reference_width_deg"
           ],
           "properties": {
-            "completed_trial_count": {"const": 288},
+            "completed_trial_count": {"const": 384},
             "aborted_trial_count": {"type": "integer", "minimum": 0},
             "ignored_noncalibration_record_count": {"type": "integer", "minimum": 0},
             "widths": {
               "type": "array",
               "minItems": 3,
               "maxItems": 3,
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["stroke_width_px", "stroke_width_deg", "completed_trials"],
-                "properties": {
-                  "stroke_width_px": {"type": "integer", "minimum": 1},
-                  "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
-                  "completed_trials": {"const": 96}
-                }
-              }
+              "prefixItems": [
+                {"$ref": "#/$defs/outer_width_summary"},
+                {"$ref": "#/$defs/reference_width_summary"},
+                {"$ref": "#/$defs/outer_width_summary"}
+              ],
+              "items": false
             },
             "session_block_quality": {
               "type": "array",
               "minItems": 4,
-              "maxItems": 4,
+              "maxItems": 6,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
@@ -397,10 +417,10 @@
                   "accuracy"
                 ],
                 "properties": {
-                  "session_block": {"type": "integer", "minimum": 1, "maximum": 4},
+                  "session_block": {"type": "integer", "minimum": 1, "maximum": 6},
                   "session_id": {"type": "string", "minLength": 1},
-                  "completed_trials": {"const": 72},
-                  "correct_trials": {"type": "integer", "minimum": 0, "maximum": 72},
+                  "completed_trials": {"enum": [64, 96]},
+                  "correct_trials": {"type": "integer", "minimum": 0, "maximum": 96},
                   "accuracy": {"type": "number", "minimum": 0, "maximum": 1}
                 }
               }

@@ -9,7 +9,7 @@ from typing import Sequence
 import numpy as np
 from scipy.optimize import minimize
 
-from psychometrics import direct_c80_probability, fit_b288
+from psychometrics import direct_c80_probability, fit_b384
 
 
 @dataclass(frozen=True)
@@ -153,7 +153,7 @@ def compare_shared_vs_free_w_aic(delta_e00, correct, block_index, *, lapse: floa
     x, y, blocks = _arrays(delta_e00, correct, block_index)
     shared = fit_shared_w(x, y, blocks, lapse=lapse)
     free_fits = [
-        fit_b288(x[blocks == block], y[blocks == block], np.ones(np.sum(blocks == block)), lapse=lapse)
+        fit_b384(x[blocks == block], y[blocks == block], np.ones(np.sum(blocks == block)), lapse=lapse)
         for block in range(3)
     ]
     free_converged = all(row.converged for row in free_fits)

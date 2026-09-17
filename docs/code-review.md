@@ -277,7 +277,7 @@ Claude CLI 내장 `claude mcp serve`도 프로토콜 초기화에는 성공했�
 - 세 교정 굵기 사이의 기하평균 검증 후보를 계산한다.
 - `plan_line_widths.py`가 실제 장치값을 받아 교정·검증 굵기의 시각도와 선행모델
   범위 이탈을 JSON으로 보고한다. 화면값과 굵기에는 기본값을 두지 않았다.
-- C80 정의, 자료 분리, B96/B288/C/D 비교, held-out 검증과 구분 불가 기준,
+- C80 정의, 자료 분리, B192/B384/C/D 비교, held-out 검증과 구분 불가 기준,
   윤리·중단 규칙을 시험 전 고정 문서에 모았다. 당시의 `독립 계단 3회` 안은
   이후 `64회 고정수준 블록 × 3세션`으로 대체되었다.
 
@@ -410,7 +410,7 @@ config-only 점검의 `human_data_collection_allowed`는 의도적으로 항상 
 ## 10. 교정자료 전용 심리측정 분석기 (2026-09-14, Codex)
 
 `analyze_calibration.py`는 파일로 받은 한 참가자의 동결 config, trial JSONL과
-실제 표시한 `calibration_manifest`를 검증한 뒤 B96/B288/C96/D288, 모수적
+실제 표시한 `calibration_manifest`를 검증한 뒤 B192/B384/C192/D384, 모수적
 bootstrap, 두 held-out 후보의 예측 C80을 계산한다. 사람 자료는 manifest가
 없으면 거부하고, 입력이 없을 때 임의 수치를 채우는 옵션도 없다. 합성 자료는
 `--allow-synthetic`을 명시해야만 실행된다.
@@ -421,10 +421,10 @@ bootstrap, 두 held-out 후보의 예측 C80을 계산한다. 사람 자료는 m
 A/B가 동결 시행표대로 완전 균형인지 검사한다. 같은 trial ID를 session 이름만
 바꿔 다시 넣어도 `(participant, config hash, trial ID)` 중복으로 거부한다.
 
-C96 상대 배율은 별도 재구현하지 않고 `experiment_design.szafir_relative_scale`
+C192 상대 배율은 별도 재구현하지 않고 `experiment_design.szafir_relative_scale`
 에 config의 동결 Lab 방향과 확률 좌표를 전달한다. 세 교정 굵기와 두 후보 중
 하나라도 Szafir 선 측정 범위 0.05~0.35도를 벗어나면 외삽하지 않고 분석 전체를
-차단한다. 기준 굵기는 오름차순 세 굵기의 중앙값이며 B96/C96에는 정확히 그
+차단한다. 기준 굵기는 오름차순 세 굵기의 중앙값이며 B192/C192에는 정확히 그
 96회만 들어간다.
 
 새 `calibration_model_fits` 1.0 스키마는 이 결과를
@@ -440,7 +440,7 @@ Szafir 범위 위반 거부 경로를 자동 테스트로 고정했다.
 ## 11. 고정수준 validation과 응답 GUI (2026-09-14, Codex)
 
 초기의 적응형 계단 계획을 폐기하고 `validation_design.py`가 교정 반응을 보지
-않은 두 held-out 후보 중 B96/C96의 절대 로그 C80 비가 큰 한 굵기를 고르게
+않은 두 held-out 후보 중 B192/C192의 절대 로그 C80 비가 큰 한 굵기를 고르게
 했다. 선택 굵기에서는 8수준×4정답 위치×odd 색 정체 2의 64회 완전요인 블록을
 서로 다른 seed와 session으로 세 번 만든다. 원 config hash, 교정 분석 원문 hash,
 192개 trial과 renderer hash를 불변 validation plan에 묶는다.
@@ -451,7 +451,7 @@ bootstrap에서도 네 모수를 함께 재적합한다. `CV<=0.20`과 세 C80 C
 교집합을 만족할 때만 joint log-C80 공분산을 사용한 GLS pooled C80을 만든다.
 블록별 자유 `w`의 AIC가 더 낮으면 `shared_w_sensitivity_warning`과 함께
 `indeterminate`로 남긴다. AIC 경고가 없더라도 paired 교정 예측과 validation
-pooled bootstrap을 결합한 B96/C96 `Δloss` 95% 구간이 0을 포함하면 모델 우열을
+pooled bootstrap을 결합한 B192/C192 `Δloss` 95% 구간이 0을 포함하면 모델 우열을
 `indeterminate`로 남긴다. 필요한 복제값이 없으면
 `comparison_unresolvable`로 fail closed한다.
 
@@ -482,7 +482,7 @@ scale grid를 8-bit sRGB로 양자화해 얻은 유일 후보를 모두 검사�
 `run_path_correction_analysis.py`는 사람 모드에서 config·validation plan·최종
 `participant_thresholds`의 raw/canonical hash, 참가자/CVD/severity, 선택 굵기,
 검증 안정성·사람 확인과 분석 코드 hash를 대조한 뒤 이 동일경로 탐색을 실행한다.
-사람 자료에서는 B96/B288/C96/D288 네 모형을 고정 순서로 모두 처리하고,
+사람 자료에서는 B192/B384/C192/D384 네 모형을 고정 순서로 모두 처리하고,
 일부만 고르는 선택 보고를 거부한다. 보정 wrapper뿐 아니라 Machado,
 CIEDE2000, 색공간 변환, 경로 생성, C80 adapter, schema와 lockfile의 SHA-256
 전체를 기록하며, 이 파일들이 모두 Git에 추적되고 현재 commit과 같을 때만
@@ -499,7 +499,7 @@ CIEDE2000, 색공간 변환, 경로 생성, C80 adapter, schema와 lockfile의 S
 
 기본 후보 수준의 `parameter_recovery.synthetic.json`은 분석기 개발 점검이다.
 교정 시작에는 참가자별 동결 config의 실제 굵기·12수준·Lab 방향·lapse를 넣은
-config-bound 200회 recovery가 별도로 필요하다. 교정 288회 뒤에는 선택된
+config-bound 200회 recovery가 별도로 필요하다. 교정 384회 뒤에는 선택된
 validation plan의 실제 양자화 8수준을 넣은 200회×bootstrap 50회 plan-bound
 recovery가 다시 필요하다. 앞 단계의 대표 결과는 뒤 단계 게이트를 대신하지
 않는다.
@@ -567,7 +567,7 @@ psychometric 의존성 변조, plan 재해시 우회, validation recovery 의존
 받는다. 외부 root, 경로 이동, 다른 참가자 파일명, phase 파일 공유와
 `--journal` 교체는 fail closed한다.
 
-연습 1개, 교정 4개, validation 3개의 session ID도 config에 사전 동결하고 모두
+연습 1개, 교정 4개 또는 6개, validation 3개의 session ID도 config에 사전 동결하고 모두
 다르게 했다. GUI는 첫 자극 전에 현재 block의 정확한 ID인지, 기존 ID가 다른
 block에 재사용됐는지, 같은 block 이력이 다른 ID로 이어졌는지 검사한다.
 `TrialJournal`은 completed와 aborted calibration/validation을 terminal key로
@@ -593,16 +593,16 @@ participant/config/raw trial/plan/manifest hash를 대조하고 review 원문 SH
 
 ## 17. 교정 굵기별 기울기 가정 감사 (2026-09-15, Codex)
 
-D288은 세 굵기에서 심리측정 기울기 `w`가 같다고 가정하지만, 기존 교정
-산출물은 이 가정을 확인하지 않았다. 교정 288회에 굵기별 C80 세 개+공통
+D384은 세 굵기에서 심리측정 기울기 `w`가 같다고 가정하지만, 기존 교정
+산출물은 이 가정을 확인하지 않았다. 교정 384회에 굵기별 C80 세 개+공통
 `w` 하나(`k=4`)와 굵기별 C80·`w` 여섯 개(`k=6`)를 적합해 AIC를 비교하고,
 AIC·차이·두 적합의 수렴 상태를 산출물에 보존하도록 했다. 둘 중 하나라도
 수렴하지 않으면 `free_w_preferred=false`로 우회하지 않고 비교 미해결로 둔다.
 
-비교 미해결, 자유 `w`의 더 낮은 AIC, 또는 D288 수치 미완료 중 하나면
-`d288_beta_interpretation_eligible=false`다. 이 플래그를 최종
-`participant_thresholds`와 동일경로 보정 보고서까지 전파한다. 이는 D288의
-beta·굵기효과 보조 해석만 막고, 기준 굵기만 쓰는 C96 대 B96 주 비교나 D288
+비교 미해결, 자유 `w`의 더 낮은 AIC, 또는 D384 수치 미완료 중 하나면
+`d384_beta_interpretation_eligible=false`다. 이 플래그를 최종
+`participant_thresholds`와 동일경로 보정 보고서까지 전파한다. 이는 D384의
+beta·굵기효과 보조 해석만 막고, 기준 굵기만 쓰는 C192 대 B192 주 비교나 D384
 예측값의 계산 보정은 막지 않는다. 네 교정 session block의 정답률도 학습·피로
 확인용 기술통계로 저장하되 제외 기준이나 유의성 검정으로 쓰지 않는다.
 
@@ -647,3 +647,40 @@ direct-C80 프로토콜 및 중단 처리와 호환되지 않는다. 일부 코�
 aware와 per-monitor aware를 구분하지 않았다. 이제 Tk 생성 전에 Per-Monitor V2
 context를 정확히 비교하고, 실제 전체화면 HWND의 DPI가 동결 배율과 같은지도
 확인한다. 150% 설정은 144 DPI이며 PNG 자체는 리샘플링하지 않는다.
+
+---
+
+## 20. 96/192/96회 혼합 교정 설계 전환 (2026-09-17, Codex)
+
+P01의 lapse 0.07을 결합한 탐색에서 기존 굵기당 96회 설계는 기준 굵기만 쓰는
+두 모형의 C80 회복오차 사전 기준을 넘었다. 탐색한 96·144·192·240회 가운데
+192회가 단일 seed에서 여유를 두고 오차 기준을 통과한 첫 조건이었지만, 이를
+`최소 시행 수`나 사람 실험 승인으로 해석하지 않는다. 따라서 후보 설계를
+바깥/기준/바깥 굵기 `96/192/96`, 총 384회로 바꾸고 B192/C192과
+B384/D384으로 이름을 바꿨다.
+
+공통 `calibration_design.py`에서 시행 수, 전체 시행 수, 4개 또는 6개 세션,
+모형 순서와 무작위화 계약을 한 번만 정의한다. 스케줄 생성기·PNG compiler·GUI·
+교정 분석·recovery·준비도 검사와 JSON schema가 이 계약을 함께 사용한다.
+4세션은 블록당 96회(24/48/24), 6세션은 블록당 64회(16/32/16)이며 자동검사로
+두 배치의 균형을 고정했다. calibration trial ID는 1~384, validation은
+385~576으로 이동했다.
+
+가상 참가자 기울기 `w`가 색차 수준 범위를 좁힐수록 자동으로 작아지던
+자기충족적 recovery 문제도 제거했다. low/central/high의 `w`는 수준 간격과
+독립된 0.225/0.321/0.482로 사전 고정하고 산출물에
+`w_source=fixed-before-range-selection`을 남긴다. 서로 다른 수준 범위에서도
+세 `w`가 같다는 회귀 테스트를 추가했다.
+
+실제 GUI 실행은 이제 기술 점검과 동의만으로 열리지 않는다. 별도 프로세스로
+전체 `research_readiness`를 다시 실행해 practice/calibration에는
+`ready_for_calibration_collection`, validation에는
+`ready_for_validation_collection`이 true일 때만 창을 연다. 따라서 정식
+config-bound recovery가 없거나 실패한 상태에서는 사람 자료를 받을 수 없다.
+
+Python 3.13과 잠금 의존성에서 핵심 136개 및 전체 319개 테스트가 통과했다.
+새 기본 합성 recovery의 200회 Monte Carlo 오차 게이트는 통과했지만 단일 대표
+D384 bootstrap이 참 beta를 포함하지 못해 전체 `passed=false`였다. seed를 골라
+통과시키지 않고 실패 산출물을 그대로 보존한다. 대상 노트북의 비공개 P01
+config로 정식 200/200 recovery를 다시 실행해 `passed=true`가 되기 전까지 사람
+실험은 승인하지 않는다.

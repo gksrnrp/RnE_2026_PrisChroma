@@ -250,7 +250,7 @@ def run_validation_recovery(
             "true_c80_sampling": (
                 "log-uniform-between-second-and-seventh-actual-level"
                 if true_c80_bounds is None
-                else "log-uniform-over-calibration-b96-c96-95ci-envelope"
+                else "log-uniform-over-calibration-b192-c192-95ci-envelope"
             ),
             "true_c80_bounds": list(c80_bounds),
             "true_w_sampling": "log-uniform-over-recorded-bounds",
@@ -306,12 +306,12 @@ def run_plan_bound_recovery(
         raise ValidationRecoveryError("plan의 선택 굵기 후보 예측이 정확히 하나가 아닙니다.")
     candidate = selected[0]
     true_c80_bounds = (
-        min(float(candidate["b96"]["ci_low"]), float(candidate["c96"]["ci_low"])),
-        max(float(candidate["b96"]["ci_high"]), float(candidate["c96"]["ci_high"])),
+        min(float(candidate["b192"]["ci_low"]), float(candidate["c192"]["ci_low"])),
+        max(float(candidate["b192"]["ci_high"]), float(candidate["c192"]["ci_high"])),
     )
     true_w_bounds = (
-        0.8 * min(float(candidate["b96"]["w"]), float(candidate["c96"]["w"])),
-        1.2 * max(float(candidate["b96"]["w"]), float(candidate["c96"]["w"])),
+        0.8 * min(float(candidate["b192"]["w"]), float(candidate["c192"]["w"])),
+        1.2 * max(float(candidate["b192"]["w"]), float(candidate["c192"]["w"])),
     )
     return run_validation_recovery(
         levels,

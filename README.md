@@ -99,8 +99,8 @@ python parameter_recovery.py --simulation-replicates 200 --bootstrap-replicates 
 Recovery는 12개 수준과 두 굵기 모형의 배율에서 가능한 기준-C80 범위를 계산해
 low-steep/central/high-shallow 진실값을 결정한다. 세 profile 각각과 전체에서
 수렴률, 중앙오차와 90백분위 오차를 통과해야 한다. 별도의 대표 자료에서는
-B96·B288·C96·D288 bootstrap이 알려진 C80(및 D288 beta)을 95% CI에 포함해야
-하며, 같은 기준 굵기 96회를 쓰는 B96/C96의 bootstrap 표본이 정확히 같아야
+B192·B384·C192·D384 bootstrap이 알려진 C80(및 D384 beta)을 95% CI에 포함해야
+하며, 같은 기준 굵기 192회를 쓰는 B192/C192의 bootstrap 표본이 정확히 같아야
 한다. 200회보다 적은 simulation 또는 bootstrap은 개발 점검은 가능하지만
 `passed=false`이므로 사람 수집 게이트를 열지 못한다.
 
@@ -116,7 +116,7 @@ python analyze_calibration.py --config ../data/experiment/private/experiment_con
 ```
 
 이 분석기는 config 원문 hash, 참가자 profile과 고정 lapse 출처, 네 session
-block의 완전 균형, 세 굵기별 96 완료 시행을 모두 대조합니다. C96은 config에
+block의 완전 균형, 굵기별 96/192/96 완료 시행을 모두 대조합니다. C192은 config에
 동결된 Lab 방향·Szafir 확률 좌표만 사용하고 0.05~0.35도 밖을 외삽하지
 않습니다. 출력은 독립 validation block을 관측하지 않은
 `calibration_only_intermediate`이며 `participant_thresholds` 최종 계약이
@@ -148,7 +148,7 @@ python research_readiness.py --format markdown
 선택은 허용하지 않는다.
 
 ```bash
-python run_path_correction_analysis.py --config ../data/experiment/private/experiment_config.json --validation-plan ../data/experiment/validation/validation-plan.json --participant-thresholds ../results/participant_thresholds.json --participant-id P01 --models B96 B288 C96 D288 --target-policy point --output ../results/path_correction_analysis.json
+python run_path_correction_analysis.py --config ../data/experiment/private/experiment_config.json --validation-plan ../data/experiment/validation/validation-plan.json --participant-thresholds ../results/participant_thresholds.json --participant-id P01 --models B192 B384 C192 D384 --target-policy point --output ../results/path_correction_analysis.json
 ```
 
 사람 모드에서는 config·plan·최종 C80 파일의 참가자, CVD 설정, hash, 선택 굵기,
@@ -167,7 +167,7 @@ config의 목표 허용오차는 8-bit 자극 수준 생성용이며 보정 후�
 가짜 임의 색쌍과 가짜 개인 C80을 일괄 연결하는 **보조 software baseline** 시험:
 
 ```bash
-python run_personal_correction.py --pairs ../data/contracts/validation_pairs.example.json --thresholds ../data/contracts/participant_thresholds.example.json --participant P_SYNTHETIC_01 --model D288 --stroke-width-px 3 --original-min 10 --search-step 0.02 --output ../results/correction_results.synthetic.json --development-mode
+python run_personal_correction.py --pairs ../data/contracts/validation_pairs.example.json --thresholds ../data/contracts/participant_thresholds.example.json --participant P_SYNTHETIC_01 --model D384 --stroke-width-px 3 --original-min 10 --search-step 0.02 --output ../results/correction_results.synthetic.json --development-mode
 python validate_contracts.py --contract correction_results --data ../results/correction_results.synthetic.json
 ```
 

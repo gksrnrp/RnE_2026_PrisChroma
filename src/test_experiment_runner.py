@@ -105,7 +105,7 @@ def frozen_config():
         },
         "sampling": {
             "delta_e00_levels": [0.5, 0.7, 0.9, 1.2, 1.6, 2.1, 2.8, 3.7, 4.9, 6.5, 8.6, 11.4],
-            "randomization": "balanced-4-session-blocks-within-block-shuffle",
+            "randomization": "balanced-mixed-width-session-blocks-within-block-shuffle",
             "practice_trials": 6,
         },
         "calibration": {
@@ -118,7 +118,8 @@ def frozen_config():
                 )}
                 for width in (2, 6, 12)
             ],
-            "trials_per_width": 96,
+            "trials_per_width": [96, 192, 96],
+            "session_block_count": 4,
         },
         "validation": {
             "candidates": [
@@ -140,7 +141,7 @@ def frozen_config():
             "randomization": "balanced-position-and-odd-color-within-block",
         },
         "model_plan": {
-            "models": ["B96", "B288", "C96", "D288"],
+            "models": ["B192", "B384", "C192", "D384"],
             "include_szafir_transfer": True,
             "szafir_probability_coordinate": 0.5,
         },
@@ -306,10 +307,10 @@ class BalancedScheduleTests(unittest.TestCase):
         schedule = build_balanced_schedule(
             frozen_config(), 77, git_commit="a" * 40
         )
-        self.assertEqual(len(schedule), 288)
-        self.assertEqual({row["trial_id"] for row in schedule}, set(range(1, 289)))
-        self.assertEqual(Counter(row["stroke_width_px"] for row in schedule), {2: 96, 6: 96, 12: 96})
-        self.assertEqual(Counter(row["session_block"] for row in schedule), {1: 72, 2: 72, 3: 72, 4: 72})
+        self.assertEqual(len(schedule), 384)
+        self.assertEqual({row["trial_id"] for row in schedule}, set(range(1, 385)))
+        self.assertEqual(Counter(row["stroke_width_px"] for row in schedule), {2: 96, 6: 192, 12: 96})
+        self.assertEqual(Counter(row["session_block"] for row in schedule), {1: 96, 2: 96, 3: 96, 4: 96})
         self.assertEqual(
             set(
                 Counter(
@@ -317,7 +318,7 @@ class BalancedScheduleTests(unittest.TestCase):
                     for row in schedule
                 ).values()
             ),
-            {24},
+            {24, 48},
         )
         self.assertEqual(
             set(
@@ -330,18 +331,18 @@ class BalancedScheduleTests(unittest.TestCase):
                     for row in schedule
                 ).values()
             ),
-            {2},
+            {2, 4},
         )
         self.assertEqual(
             [row["session_block"] for row in schedule],
-            [1] * 72 + [2] * 72 + [3] * 72 + [4] * 72,
+            [1] * 96 + [2] * 96 + [3] * 96 + [4] * 96,
         )
 
         cells = Counter(
             (row["stroke_width_px"], row["target_delta_e00_simulated"])
             for row in schedule
         )
-        self.assertEqual(set(cells.values()), {8})
+        self.assertEqual(set(cells.values()), {8, 16})
         positions = Counter(
             (
                 row["stroke_width_px"],
@@ -350,7 +351,7 @@ class BalancedScheduleTests(unittest.TestCase):
             )
             for row in schedule
         )
-        self.assertEqual(set(positions.values()), {2})
+        self.assertEqual(set(positions.values()), {2, 4})
         odd_colors = Counter(
             (
                 row["stroke_width_px"],
@@ -360,13 +361,42 @@ class BalancedScheduleTests(unittest.TestCase):
             )
             for row in schedule
         )
-        self.assertEqual(set(odd_colors.values()), {1})
+        self.assertEqual(set(odd_colors.values()), {1, 2})
         self.assertTrue(all(row["config_sha256"] == schedule[0]["config_sha256"] for row in schedule))
         self.assertTrue(all(row["git_commit"] == "a" * 40 for row in schedule))
         self.assertTrue(all(row["participant_id"] == "P_TEST_01" for row in schedule))
         self.assertTrue(all(row["stimulus_family_id"] == "LINE_FAMILY_TEST_V1" for row in schedule))
         self.assertTrue(all(row["cvd_type"] == "deutan" for row in schedule))
         self.assertTrue(all(row["machado_severity"] == 0.8 for row in schedule))
+
+    def test_six_block_schedule_is_balanced_at_64_trials_per_session(self):
+        config = frozen_config()
+        config["calibration"]["session_block_count"] = 6
+        config["journal"]["session_ids"]["calibration"].update(
+            {
+                "5": "P_TEST_01-CAL-05",
+                "6": "P_TEST_01-CAL-06",
+            }
+        )
+        schedule = build_balanced_schedule(config, 78, git_commit="a" * 40)
+        self.assertEqual(len(schedule), 384)
+        self.assertEqual(
+            Counter(row["session_block"] for row in schedule),
+            {block: 64 for block in range(1, 7)},
+        )
+        self.assertEqual(
+            Counter(
+                (row["session_block"], row["stroke_width_px"])
+                for row in schedule
+            ),
+            Counter(
+                {
+                    (block, width): expected
+                    for block in range(1, 7)
+                    for width, expected in ((2, 16), (6, 32), (12, 16))
+                }
+            ),
+        )
 
     def test_same_seed_is_reproducible_and_different_seed_changes_order(self):
         first = build_balanced_schedule(frozen_config(), 123, git_commit="b" * 40)
@@ -401,7 +431,7 @@ class BalancedScheduleTests(unittest.TestCase):
             self.assertTrue(payload["renderer_verified"])
             self.assertTrue(payload["human_response_collection_implemented"])
             self.assertFalse(payload["human_data_collection_allowed"])
-            self.assertEqual(payload["trial_count"], 288)
+            self.assertEqual(payload["trial_count"], 384)
 
 
 class TrialJournalTests(unittest.TestCase):

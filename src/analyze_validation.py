@@ -3,7 +3,7 @@
 세 64시행 블록의 C80 세 개와 공통 w를 joint MLE로 적합하고, joint 모수적
 bootstrap으로 구간·공분산을 구한다. 세 C80의 CV가 0.20 이하이고 세 95%
 구간에 공통 교집합이 있을 때만 GLS로 log(C80) 통합값을 만든다. 불안정하면
-통합값은 ``null``이다. B96/C96의 우열은 교정 단계의 paired 예측 bootstrap과
+통합값은 ``null``이다. B192/C192의 우열은 교정 단계의 paired 예측 bootstrap과
 검증 단계의 pooled bootstrap을 함께 전파한 Δloss 95% 구간으로만 판정한다.
 """
 
@@ -288,9 +288,9 @@ def _validate_validation_manifest(
         if trial_id in by_id:
             raise ValidationAnalysisError(f"validation manifest trial_id가 중복됩니다: {trial_id}")
         by_id[trial_id] = row
-    if set(by_id) != set(range(289, 481)):
+    if set(by_id) != set(range(385, 577)):
         raise ValidationAnalysisError(
-            "validation manifest trial_id는 예약 범위 289~480이어야 합니다."
+            "validation manifest trial_id는 예약 범위 385~576이어야 합니다."
         )
 
     immutable_fields = (
@@ -648,16 +648,16 @@ def _delta_loss_bootstrap(
     observed_bootstrap_samples: np.ndarray,
     shared_w_sensitivity: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """B96/C96 예측과 held-out 관측의 불확실성을 함께 전파한다.
+    """B192/C192 예측과 held-out 관측의 불확실성을 함께 전파한다.
 
-    B96/C96은 교정 단계에서 같은 모의 반응 복제로 짝지어 적합한다. 검증
+    B192/C192은 교정 단계에서 같은 모의 반응 복제로 짝지어 적합한다. 검증
     bootstrap은 교정 자료와 독립이므로 동일 인덱스로 결합해
-    ``|C96-O|-|B96-O|``의 empirical percentile 구간을 만든다. 필요한 원시
+    ``|C192-O|-|B192-O|``의 empirical percentile 구간을 만든다. 필요한 원시
     복제값이나 pairing 표지가 없는 구형 산출물은 점추정 승패로 대체하지
     않고 명시적으로 ``unresolvable``을 반환한다.
     """
 
-    definition = "abs(C96_prediction-observed)-abs(B96_prediction-observed)"
+    definition = "abs(C192_prediction-observed)-abs(B192_prediction-observed)"
     result: dict[str, Any] = {
         "definition": definition,
         "point_estimate": None,
@@ -674,25 +674,25 @@ def _delta_loss_bootstrap(
     if observed is None:
         return result
 
-    b96 = by_model["B96"]
-    c96 = by_model["C96"]
-    point = abs(float(c96["c80_sim"]) - observed) - abs(
-        float(b96["c80_sim"]) - observed
+    b192 = by_model["B192"]
+    c192 = by_model["C192"]
+    point = abs(float(c192["c80_sim"]) - observed) - abs(
+        float(b192["c80_sim"]) - observed
     )
     result["point_estimate"] = point
-    pairing_id = b96.get("bootstrap_pairing_id")
+    pairing_id = b192.get("bootstrap_pairing_id")
     if (
         not isinstance(pairing_id, str)
         or not pairing_id
-        or c96.get("bootstrap_pairing_id") != pairing_id
+        or c192.get("bootstrap_pairing_id") != pairing_id
     ):
         result["reason"] = "paired_calibration_bootstrap_unavailable"
         return result
     result["calibration_pairing_id"] = pairing_id
 
     try:
-        b_samples = np.asarray(b96.get("bootstrap_c80_samples", ()), dtype=float)
-        c_samples = np.asarray(c96.get("bootstrap_c80_samples", ()), dtype=float)
+        b_samples = np.asarray(b192.get("bootstrap_c80_samples", ()), dtype=float)
+        c_samples = np.asarray(c192.get("bootstrap_c80_samples", ()), dtype=float)
         observed_samples = np.asarray(observed_bootstrap_samples, dtype=float)
     except (TypeError, ValueError):
         result["reason"] = "invalid_bootstrap_samples"
@@ -738,9 +738,9 @@ def _delta_loss_bootstrap(
     elif shared_w_sensitivity["free_w_preferred"]:
         result.update(status="indeterminate", reason="shared_w_sensitivity_warning")
     elif high < -tolerance:
-        result.update(status="resolved_C96_lower_error", reason="bootstrap_ci_below_negative_tolerance")
+        result.update(status="resolved_C192_lower_error", reason="bootstrap_ci_below_negative_tolerance")
     elif low > tolerance:
-        result.update(status="resolved_B96_lower_error", reason="bootstrap_ci_above_positive_tolerance")
+        result.update(status="resolved_B192_lower_error", reason="bootstrap_ci_above_positive_tolerance")
     elif low >= -tolerance and high <= tolerance:
         result.update(status="equivalent_within_tolerance", reason="bootstrap_ci_within_equivalence_band")
     else:
@@ -755,17 +755,17 @@ def _model_comparisons(
     observed_bootstrap_samples: np.ndarray,
 ) -> dict[str, Any]:
     by_model = {row["model"]: row for row in predictions}
-    required = {"B96", "B288", "C96", "D288"}
+    required = {"B192", "B384", "C192", "D384"}
     if set(by_model) != required:
-        raise ValidationAnalysisError("모델 비교에는 B96/B288/C96/D288 예측이 모두 필요합니다.")
-    b96 = float(by_model["B96"]["c80_sim"])
-    c96 = float(by_model["C96"]["c80_sim"])
-    d288 = float(by_model["D288"]["c80_sim"])
-    b288 = float(by_model["B288"]["c80_sim"])
+        raise ValidationAnalysisError("모델 비교에는 B192/B384/C192/D384 예측이 모두 필요합니다.")
+    b192 = float(by_model["B192"]["c80_sim"])
+    c192 = float(by_model["C192"]["c80_sim"])
+    d384 = float(by_model["D384"]["c80_sim"])
+    b384 = float(by_model["B384"]["c80_sim"])
     observed = validation["pooled_c80"]
     low = validation["pooled_ci_low"]
     high = validation["pooled_ci_high"]
-    separation = abs(b96 - c96)
+    separation = abs(b192 - c192)
     delta_loss = _delta_loss_bootstrap(
         by_model, observed, observed_bootstrap_samples, shared_w_sensitivity
     )
@@ -781,22 +781,22 @@ def _model_comparisons(
         half_width = (high - low) / 2.0
         resolution = False
         errors = {
-            "B96": abs(b96 - observed),
-            "C96": abs(c96 - observed),
-            "D288": abs(d288 - observed),
-            "B288": abs(b288 - observed),
+            "B192": abs(b192 - observed),
+            "C192": abs(c192 - observed),
+            "D384": abs(d384 - observed),
+            "B384": abs(b384 - observed),
         }
         outcome_by_status = {
-            "resolved_C96_lower_error": "C96_lower_error",
-            "resolved_B96_lower_error": "B96_lower_error",
+            "resolved_C192_lower_error": "C192_lower_error",
+            "resolved_B192_lower_error": "B192_lower_error",
             "equivalent_within_tolerance": "equal_within_tolerance",
             "indeterminate": "model_indistinguishable",
             "unresolvable": "comparison_unresolvable",
         }
         primary_outcome = outcome_by_status[delta_loss["status"]]
         resolution = delta_loss["status"] in {
-            "resolved_C96_lower_error",
-            "resolved_B96_lower_error",
+            "resolved_C192_lower_error",
+            "resolved_B192_lower_error",
             "equivalent_within_tolerance",
         }
     return {
@@ -806,20 +806,20 @@ def _model_comparisons(
         "observed_ci_low": low,
         "observed_ci_high": high,
         "primary": {
-            "first_model": "B96",
-            "first_prediction": b96,
-            "first_abs_error": errors["B96"],
-            "second_model": "C96",
-            "second_prediction": c96,
-            "second_abs_error": errors["C96"],
+            "first_model": "B192",
+            "first_prediction": b192,
+            "first_abs_error": errors["B192"],
+            "second_model": "C192",
+            "second_prediction": c192,
+            "second_abs_error": errors["C192"],
         },
         "secondary": {
-            "first_model": "D288",
-            "first_prediction": d288,
-            "first_abs_error": errors["D288"],
-            "second_model": "B288",
-            "second_prediction": b288,
-            "second_abs_error": errors["B288"],
+            "first_model": "D384",
+            "first_prediction": d384,
+            "first_abs_error": errors["D384"],
+            "second_model": "B384",
+            "second_prediction": b384,
+            "second_abs_error": errors["B384"],
         },
         "prediction_separation": separation,
         "observed_ci_half_width": half_width,

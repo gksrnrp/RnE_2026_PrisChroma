@@ -25,7 +25,7 @@ class ThresholdAdapterTests(unittest.TestCase):
             load_threshold_estimate(
                 EXAMPLE_PATHS["participant_thresholds"],
                 participant_id="P_SYNTHETIC_01",
-                model="D288",
+                model="D384",
                 stroke_width_px=3,
             )
 
@@ -33,7 +33,7 @@ class ThresholdAdapterTests(unittest.TestCase):
         estimate = load_threshold_estimate(
             EXAMPLE_PATHS["participant_thresholds"],
             participant_id="P_SYNTHETIC_01",
-            model="D288",
+            model="D384",
             stroke_width_px=3,
             development_mode=True,
         )
@@ -46,7 +46,7 @@ class ThresholdAdapterTests(unittest.TestCase):
             load_threshold_estimate(
                 EXAMPLE_PATHS["participant_thresholds"],
                 participant_id="P_SYNTHETIC_01",
-                model="D288",
+                model="D384",
                 stroke_width_px=4,
                 development_mode=True,
             )
@@ -56,7 +56,7 @@ class ThresholdAdapterTests(unittest.TestCase):
             load_threshold_estimate(
                 EXAMPLE_PATHS["participant_thresholds"],
                 participant_id="P404",
-                model="D288",
+                model="D384",
                 stroke_width_px=3,
                 development_mode=True,
             )
@@ -65,7 +65,7 @@ class ThresholdAdapterTests(unittest.TestCase):
         estimate = load_threshold_estimate(
             EXAMPLE_PATHS["participant_thresholds"],
             participant_id="P_SYNTHETIC_01",
-            model="D288",
+            model="D384",
             stroke_width_px=3,
             development_mode=True,
         )
@@ -82,7 +82,7 @@ class ThresholdAdapterTests(unittest.TestCase):
         estimate = load_threshold_estimate(
             EXAMPLE_PATHS["participant_thresholds"],
             participant_id="P_SYNTHETIC_01",
-            model="D288",
+            model="D384",
             stroke_width_px=3,
             development_mode=True,
         )
@@ -98,7 +98,7 @@ class ThresholdAdapterTests(unittest.TestCase):
         estimate = load_threshold_estimate(
             EXAMPLE_PATHS["participant_thresholds"],
             participant_id="P_SYNTHETIC_01",
-            model="D288",
+            model="D384",
             stroke_width_px=3,
             development_mode=True,
         )
@@ -113,7 +113,7 @@ class ThresholdAdapterTests(unittest.TestCase):
         estimate = load_threshold_estimate(
             EXAMPLE_PATHS["participant_thresholds"],
             participant_id="P_SYNTHETIC_01",
-            model="D288",
+            model="D384",
             stroke_width_px=3,
             development_mode=True,
         )
@@ -126,7 +126,7 @@ class ThresholdAdapterTests(unittest.TestCase):
             estimate = load_threshold_estimate(
                 path,
                 participant_id="P_TEST_01",
-                model="D288",
+                model="D384",
                 stroke_width_px=4,
             )
         self.assertEqual(estimate.data_origin, "human")
@@ -145,7 +145,7 @@ class ThresholdAdapterTests(unittest.TestCase):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 
@@ -154,14 +154,14 @@ class ThresholdAdapterTests(unittest.TestCase):
         sensitivity = payload["participants"][0][
             "calibration_width_slope_sensitivity"
         ]
-        sensitivity["d288_beta_interpretation_eligible"] = False
+        sensitivity["d384_beta_interpretation_eligible"] = False
         with tempfile.TemporaryDirectory() as folder:
             path = self._write_human(folder, payload)
-            with self.assertRaisesRegex(ThresholdAdapterError, "D288 beta"):
+            with self.assertRaisesRegex(ThresholdAdapterError, "D384 beta"):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 
@@ -203,7 +203,7 @@ class ThresholdAdapterTests(unittest.TestCase):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 
@@ -230,7 +230,7 @@ class ThresholdAdapterTests(unittest.TestCase):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 
@@ -246,7 +246,7 @@ class ThresholdAdapterTests(unittest.TestCase):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 
@@ -260,7 +260,7 @@ class ThresholdAdapterTests(unittest.TestCase):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 
@@ -278,7 +278,7 @@ class ThresholdAdapterTests(unittest.TestCase):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 
@@ -292,7 +292,7 @@ class ThresholdAdapterTests(unittest.TestCase):
                 load_threshold_estimate(
                     path,
                     participant_id="P_TEST_01",
-                    model="D288",
+                    model="D384",
                     stroke_width_px=4,
                 )
 

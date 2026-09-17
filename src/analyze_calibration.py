@@ -23,6 +23,16 @@ from typing import Any
 import numpy as np
 from jsonschema import Draft202012Validator, FormatChecker
 
+from calibration_design import (
+    CALIBRATION_MODELS,
+    CALIBRATION_TOTAL_TRIALS,
+    CALIBRATION_WIDTH_TRIAL_COUNTS,
+    REFERENCE_WIDTH_TRIALS,
+    block_count_from_config,
+    block_trial_count,
+    trial_counts_from_config,
+    width_block_trial_counts,
+)
 from color_spaces import srgb_to_lab
 from data_contracts import ContractError, validate_payload
 from distance import delta_e_2000
@@ -47,10 +57,10 @@ from machado import simulate_color_float
 from psychometrics import (
     BootstrapResult,
     FitResult,
-    fit_b96,
-    fit_b288,
-    fit_c96,
-    fit_d288,
+    fit_b192,
+    fit_b384,
+    fit_c192,
+    fit_d384,
     parametric_bootstrap,
 )
 from stimulus_renderer import (
@@ -66,8 +76,8 @@ HUMAN_CONFIG_SCHEMA = PROJECT_ROOT / "schemas" / "human" / "experiment_config.sc
 HUMAN_TRIAL_SCHEMA = PROJECT_ROOT / "schemas" / "human" / "trial.schema.json"
 OUTPUT_SCHEMA = PROJECT_ROOT / "schemas" / "calibration_model_fits.schema.json"
 
-MODELS = ("B96", "B288", "C96", "D288")
-PRIMARY_BOOTSTRAP_PAIRING_ID = "B96-C96-reference-width-parametric-v1"
+MODELS = CALIBRATION_MODELS
+PRIMARY_BOOTSTRAP_PAIRING_ID = "B192-C192-reference-width-parametric-v1"
 CONFIDENCE = 0.95
 MINIMUM_BOOTSTRAP_CONVERGENCE_RATE = 0.90
 MINIMUM_HUMAN_BOOTSTRAP_REPLICATES = 1000
@@ -288,9 +298,9 @@ def _validate_config(config: dict[str, Any], *, data_origin: str) -> None:
     if not isinstance(model_plan, Mapping):
         raise AnalysisBlockedError("config.model_plan이 없습니다.")
     if set(model_plan.get("models", ())) != set(MODELS) or len(model_plan.get("models", ())) != 4:
-        raise AnalysisBlockedError("config.model_plan.models에는 B96/B288/C96/D288이 각각 한 번 필요합니다.")
+        raise AnalysisBlockedError("config.model_plan.models에는 B192/B384/C192/D384이 각각 한 번 필요합니다.")
     if model_plan.get("include_szafir_transfer") is not True:
-        raise AnalysisBlockedError("C96 분석에는 include_szafir_transfer=true가 필요합니다.")
+        raise AnalysisBlockedError("C192 분석에는 include_szafir_transfer=true가 필요합니다.")
 
     staircase = config.get("staircase")
     profile = config.get("observer_profile")
@@ -319,8 +329,13 @@ def _validate_config(config: dict[str, Any], *, data_origin: str) -> None:
             raise AnalysisBlockedError(f"사람 자료의 observer_profile.{field}가 미확정 값입니다.")
 
     calibration = config.get("calibration")
-    if not isinstance(calibration, Mapping) or calibration.get("trials_per_width") != 96:
-        raise AnalysisBlockedError("교정은 굵기당 정확히 96 완료 시행으로 동결해야 합니다.")
+    if not isinstance(calibration, Mapping):
+        raise AnalysisBlockedError("config.calibration이 필요합니다.")
+    try:
+        trial_counts_from_config(config)
+        block_count_from_config(config)
+    except ValueError as error:
+        raise AnalysisBlockedError(str(error)) from error
     widths = calibration.get("widths")
     if not isinstance(widths, list) or len(widths) != 3:
         raise AnalysisBlockedError("config.calibration.widths에는 굵기 세 개가 필요합니다.")
@@ -362,7 +377,7 @@ def _validate_config(config: dict[str, Any], *, data_origin: str) -> None:
     for angle in all_angles:
         if not SZAFIR_LINE_MIN_VISUAL_ANGLE_DEG <= angle <= SZAFIR_LINE_MAX_VISUAL_ANGLE_DEG:
             raise AnalysisBlockedError(
-                f"C96 굵기 {angle:g}도는 Szafir 측정 범위 "
+                f"C192 굵기 {angle:g}도는 Szafir 측정 범위 "
                 f"{SZAFIR_LINE_MIN_VISUAL_ANGLE_DEG:g}~"
                 f"{SZAFIR_LINE_MAX_VISUAL_ANGLE_DEG:g}도 밖입니다. 외삽하지 않습니다."
             )
@@ -479,7 +494,7 @@ def _validate_calibration_manifest(
         "participant_id": config["observer_profile"]["participant_id"],
         "cvd_type": config["observer_profile"]["cvd_type"],
         "machado_severity": config["observer_profile"]["severity"],
-        "trial_count": 288,
+        "trial_count": CALIBRATION_TOTAL_TRIALS,
         "png_files_written": True,
         "human_response_collection_implemented": True,
     }
@@ -531,8 +546,8 @@ def _validate_calibration_manifest(
             )
 
     manifest_rows = manifest.get("trials")
-    if not isinstance(manifest_rows, list) or len(manifest_rows) != 288:
-        raise AnalysisBlockedError("calibration manifest는 정확히 288개 시행이어야 합니다.")
+    if not isinstance(manifest_rows, list) or len(manifest_rows) != CALIBRATION_TOTAL_TRIALS:
+        raise AnalysisBlockedError("calibration manifest는 정확히 384개 시행이어야 합니다.")
     by_id: dict[int, Mapping[str, Any]] = {}
     for index, row in enumerate(manifest_rows):
         if (
@@ -549,8 +564,8 @@ def _validate_calibration_manifest(
                 f"calibration manifest trial_id가 중복됩니다: {trial_id}"
             )
         by_id[trial_id] = row
-    if set(by_id) != set(range(1, 289)):
-        raise AnalysisBlockedError("calibration manifest trial_id는 정확히 1~288이어야 합니다.")
+    if set(by_id) != set(range(1, CALIBRATION_TOTAL_TRIALS + 1)):
+        raise AnalysisBlockedError("calibration manifest trial_id는 정확히 1~384여야 합니다.")
 
     color_pairs = manifest.get("color_pairs")
     levels = list(config["sampling"]["delta_e00_levels"])
@@ -607,9 +622,9 @@ def _validate_calibration_manifest(
             for row in manifest_rows
             if row.get("delta_e00_level_index") == level_index
         ]
-        if len(matching_rows) != 24:
+        if len(matching_rows) != 32:
             raise AnalysisBlockedError(
-                f"calibration manifest level {level_index} 시행은 정확히 24개여야 합니다."
+                f"calibration manifest level {level_index} 시행은 정확히 32개여야 합니다."
             )
         for row in matching_rows:
             for field in pair_fields:
@@ -752,44 +767,60 @@ def _participant_calibration(
     ignored = len(records) - len(calibration_records)
     widths = config["calibration"]["widths"]
     expected = {int(row["width_px"]): float(row["width_deg"]) for row in widths}
+    expected_width_counts = {
+        int(row["width_px"]): count
+        for row, count in zip(widths, CALIBRATION_WIDTH_TRIAL_COUNTS)
+    }
     counts = Counter(int(row["stroke_width_px"]) for row in completed)
-    if counts != Counter({width_px: 96 for width_px in expected}):
+    if counts != Counter(expected_width_counts):
         raise AnalysisBlockedError(
-            f"{participant_id}: 완료 교정 시행은 세 굵기마다 정확히 96회여야 합니다. "
+            f"{participant_id}: 완료 교정 시행은 굵기 순서대로 96/192/96회여야 합니다. "
             f"관측={dict(sorted(counts.items()))}"
         )
-    if {int(row["trial_id"]) for row in completed} != set(range(1, 289)):
+    if {int(row["trial_id"]) for row in completed} != set(
+        range(1, CALIBRATION_TOTAL_TRIALS + 1)
+    ):
         raise AnalysisBlockedError(
-            f"{participant_id}: 완료 calibration trial_id는 정확히 1~288이어야 합니다."
+            f"{participant_id}: 완료 calibration trial_id는 정확히 1~384여야 합니다."
         )
+    block_count = block_count_from_config(config)
+    trials_per_block = block_trial_count(config)
     block_counts = Counter(int(row["session_block"]) for row in completed)
-    if block_counts != Counter({block: 72 for block in range(1, 5)}):
+    if block_counts != Counter(
+        {block: trials_per_block for block in range(1, block_count + 1)}
+    ):
         raise AnalysisBlockedError(
-            f"{participant_id}: 완료 교정 시행은 session_block 1~4마다 정확히 72회여야 합니다. "
+            f"{participant_id}: 완료 교정 시행의 block 균형이 잘못됐습니다. "
             f"관측={dict(sorted(block_counts.items()))}"
         )
     block_sessions = {
         block: {row["session_id"] for row in completed if int(row["session_block"]) == block}
-        for block in range(1, 5)
+        for block in range(1, block_count + 1)
     }
     if any(len(sessions) != 1 for sessions in block_sessions.values()):
         raise AnalysisBlockedError(
             f"{participant_id}: 각 calibration block의 완료 시행은 정확히 한 session_id에 속해야 합니다."
         )
     completed_session_ids = {next(iter(sessions)) for sessions in block_sessions.values()}
-    if len(completed_session_ids) != 4:
+    if len(completed_session_ids) != block_count:
         raise AnalysisBlockedError(
-            f"{participant_id}: calibration block 4개는 서로 다른 session_id 4개여야 합니다."
+            f"{participant_id}: calibration block은 서로 다른 session_id여야 합니다."
         )
     width_block_counts = Counter(
         (int(row["stroke_width_px"]), int(row["session_block"]))
         for row in completed
     )
-    if set(width_block_counts) != {
-        (width_px, block) for width_px in expected for block in range(1, 5)
-    } or set(width_block_counts.values()) != {24}:
+    expected_per_width_block = width_block_trial_counts(config)
+    expected_width_block_counts = Counter(
+        {
+            (int(widths[index]["width_px"]), block): expected_per_width_block[index]
+            for index in range(3)
+            for block in range(1, block_count + 1)
+        }
+    )
+    if width_block_counts != expected_width_block_counts:
         raise AnalysisBlockedError(
-            f"{participant_id}: 각 굵기×session_block에는 완료 시행 24회가 필요합니다."
+            f"{participant_id}: 각 굵기×session_block 시행 수가 동결 설계와 다릅니다."
         )
     level_counts = Counter(
         (int(row["stroke_width_px"]), int(row["delta_e00_level_index"]))
@@ -797,9 +828,15 @@ def _participant_calibration(
     )
     if set(level_counts) != {
         (width_px, level) for width_px in expected for level in range(1, 13)
-    } or set(level_counts.values()) != {8}:
+    } or {
+        width_px: {count for (cell_width, _), count in level_counts.items() if cell_width == width_px}
+        for width_px in expected
+    } != {
+        int(widths[index]["width_px"]): {CALIBRATION_WIDTH_TRIAL_COUNTS[index] // 12}
+        for index in range(3)
+    }:
         raise AnalysisBlockedError(
-            f"{participant_id}: 각 굵기×12 ΔE 수준에는 완료 시행 8회가 필요합니다."
+            f"{participant_id}: 각 굵기×12 ΔE 수준 시행 수가 8/16/8이 아닙니다."
         )
     balanced_cells = Counter(
         (
@@ -817,7 +854,14 @@ def _participant_calibration(
         for position in range(1, 5)
         for odd in ("a", "b")
     }
-    if set(balanced_cells) != expected_cells or set(balanced_cells.values()) != {1}:
+    expected_cell_counts = {
+        int(widths[index]["width_px"]): CALIBRATION_WIDTH_TRIAL_COUNTS[index] // 96
+        for index in range(3)
+    }
+    if set(balanced_cells) != expected_cells or any(
+        count != expected_cell_counts[cell[0]]
+        for cell, count in balanced_cells.items()
+    ):
         raise AnalysisBlockedError(
             f"{participant_id}: 굵기×수준×정답위치×odd A/B 완료 셀이 완전 균형이 아닙니다."
         )
@@ -882,7 +926,7 @@ def _participant_calibration(
         for row in widths
     ]
     session_block_quality = []
-    for block in range(1, 5):
+    for block in range(1, block_count + 1):
         block_rows = [
             row for row in completed if int(row["session_block"]) == block
         ]
@@ -916,11 +960,11 @@ def _participant_calibration(
 
 
 def _model_seed(base_seed: int, participant_id: str, model: str) -> int:
-    # B96과 C96은 같은 기준 굵기 96시행을 사용하고 그 굵기에서는 같은
+    # B192과 C192은 같은 기준 굵기 192시행을 사용하고 그 굵기에서는 같은
     # 심리측정 모형이다. 두 모델에 같은 난수열을 써야 같은 인덱스의
     # bootstrap 복제가 같은 모의 반응 자료에 대응하고, held-out 예측의
     # 손실 차이를 paired bootstrap으로 계산할 수 있다.
-    seed_key = PRIMARY_BOOTSTRAP_PAIRING_ID if model in {"B96", "C96"} else model
+    seed_key = PRIMARY_BOOTSTRAP_PAIRING_ID if model in {"B192", "C192"} else model
     encoded = f"{base_seed}\0{participant_id}\0{seed_key}".encode("utf-8")
     return int.from_bytes(hashlib.sha256(encoded).digest()[:4], "big")
 
@@ -952,17 +996,17 @@ def _bootstrap_c80_samples(
 ) -> np.ndarray:
     """특정 굵기의 C80 bootstrap 복제값을 원래 순서대로 변환한다."""
     width = float(stroke_width_deg)
-    if result.model in {"B96", "B288"}:
+    if result.model in {"B192", "B384"}:
         values = np.asarray(result.estimates.get("c80", ()), dtype=float)
-    elif result.model == "C96":
+    elif result.model == "C192":
         if result.relative_scale is None:
-            raise AnalysisBlockedError("C96 bootstrap relative scale이 없습니다.")
+            raise AnalysisBlockedError("C192 bootstrap relative scale이 없습니다.")
         values = np.asarray(result.estimates.get("c80_ref", ()), dtype=float) * float(
             result.relative_scale(width)
         )
-    elif result.model == "D288":
+    elif result.model == "D384":
         if result.reference_width is None:
-            raise AnalysisBlockedError("D288 bootstrap reference width가 없습니다.")
+            raise AnalysisBlockedError("D384 bootstrap reference width가 없습니다.")
         values = np.asarray(result.estimates.get("c80_ref", ()), dtype=float) * (
             width / result.reference_width
         ) ** np.asarray(result.estimates.get("beta", ()), dtype=float)
@@ -1084,7 +1128,7 @@ def _fit_all_models(
             allow_extrapolation=False,
         )
 
-    # 모든 교정·held-out 후보에서 미리 호출해 C96 외삽이나 식 오류를 적합 전에 막는다.
+    # 모든 교정·held-out 후보에서 미리 호출해 C192 외삽이나 식 오류를 적합 전에 막는다.
     prediction_widths = [
         float(row["width_deg"]) for row in config["validation"]["candidates"]
     ]
@@ -1092,9 +1136,9 @@ def _fit_all_models(
         scale(float(width))
 
     fits = {
-        "B96": fit_b96(x, correct, widths, reference_width=reference, lapse=lapse),
-        "B288": fit_b288(x, correct, widths, lapse=lapse),
-        "C96": fit_c96(
+        "B192": fit_b192(x, correct, widths, reference_width=reference, lapse=lapse),
+        "B384": fit_b384(x, correct, widths, lapse=lapse),
+        "C192": fit_c192(
             x,
             correct,
             widths,
@@ -1102,14 +1146,14 @@ def _fit_all_models(
             relative_scale=scale,
             lapse=lapse,
         ),
-        "D288": fit_d288(x, correct, widths, reference_width=reference, lapse=lapse),
+        "D384": fit_d384(x, correct, widths, reference_width=reference, lapse=lapse),
     }
     reference_mask = np.isclose(widths, reference, rtol=1e-10, atol=1e-12)
     results: list[dict[str, Any]] = []
     participant_id = str(config["observer_profile"]["participant_id"])
     for model in MODELS:
         fit = fits[model]
-        if model in {"B96", "C96"}:
+        if model in {"B192", "C192"}:
             bootstrap_x = x[reference_mask]
             bootstrap_correct = correct[reference_mask]
             bootstrap_widths = widths[reference_mask]
@@ -1126,11 +1170,11 @@ def _fit_all_models(
             minimum_convergence_rate=MINIMUM_BOOTSTRAP_CONVERGENCE_RATE,
         )
         pairing_id = (
-            PRIMARY_BOOTSTRAP_PAIRING_ID if model in {"B96", "C96"} else None
+            PRIMARY_BOOTSTRAP_PAIRING_ID if model in {"B192", "C192"} else None
         )
         checked_widths = (
             [reference]
-            if model in {"B96", "C96"}
+            if model in {"B192", "C192"}
             else [float(value) for value in np.unique(widths)]
         )
         range_checks = _training_range_checks(
@@ -1186,8 +1230,8 @@ def _calibration_width_slope_sensitivity(
 
     The shared model has three width-specific C80 values and one common ``w``
     (k=4).  The sensitivity model has a separate C80 and ``w`` at each width
-    (k=6).  This audit only gates interpretation of D288's beta; the same-data
-    C96-vs-B96 primary comparison uses the reference-width trials alone.
+    (k=6).  This audit only gates interpretation of D384's beta; the same-data
+    C192-vs-B192 primary comparison uses the reference-width trials alone.
     """
 
     x = np.asarray([float(row["delta_e00_simulated"]) for row in records])
@@ -1210,12 +1254,12 @@ def _calibration_width_slope_sensitivity(
         width_index,
         lapse=float(config["observer_profile"]["fixed_lapse"]),
     )
-    d288_rows = [row for row in model_results if row.get("model") == "D288"]
-    if len(d288_rows) != 1:
-        raise AnalysisBlockedError("D288 결과가 정확히 하나여야 합니다.")
-    d288_ready = bool(
-        d288_rows[0]["fit"]["converged"]
-        and d288_rows[0]["bootstrap"]["converged"]
+    d384_rows = [row for row in model_results if row.get("model") == "D384"]
+    if len(d384_rows) != 1:
+        raise AnalysisBlockedError("D384 결과가 정확히 하나여야 합니다.")
+    d384_ready = bool(
+        d384_rows[0]["fit"]["converged"]
+        and d384_rows[0]["bootstrap"]["converged"]
     )
     if not comparison["comparison_resolved"]:
         eligible = False
@@ -1223,21 +1267,21 @@ def _calibration_width_slope_sensitivity(
     elif comparison["free_w_preferred"]:
         eligible = False
         reason = "free_w_lower_aic"
-    elif not d288_ready:
+    elif not d384_ready:
         eligible = False
-        reason = "d288_numerically_incomplete"
+        reason = "d384_numerically_incomplete"
     else:
         eligible = True
-        reason = "shared_w_retained_and_d288_numerically_complete"
+        reason = "shared_w_retained_and_d384_numerically_complete"
 
     return {
         "criterion": "AIC",
         "shared_w_parameter_count": 4,
         "free_w_parameter_count": 6,
         **comparison,
-        "d288_beta_interpretation_eligible": eligible,
-        "d288_beta_interpretation_reason": reason,
-        "primary_c96_vs_b96_affected": False,
+        "d384_beta_interpretation_eligible": eligible,
+        "d384_beta_interpretation_reason": reason,
+        "primary_c192_vs_b192_affected": False,
     }
 
 
@@ -1262,11 +1306,14 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
         )
     participant = payload["participants"][0]
     quality_rows = participant["calibration"]["session_block_quality"]
-    if [row["session_block"] for row in quality_rows] != [1, 2, 3, 4]:
+    block_count = int(payload["analysis_specification"]["session_block_count"])
+    if [row["session_block"] for row in quality_rows] != list(
+        range(1, block_count + 1)
+    ):
         raise AnalysisBlockedError(
-            "calibration session block 품질표는 1~4 순서로 각각 한 번이어야 합니다."
+            "calibration session block 품질표가 동결 block 순서와 다릅니다."
         )
-    if len({row["session_id"] for row in quality_rows}) != 4:
+    if len({row["session_id"] for row in quality_rows}) != block_count:
         raise AnalysisBlockedError(
             "calibration session block 품질표의 session_id는 네 개 모두 달라야 합니다."
         )
@@ -1281,14 +1328,19 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
         )
     models = participant["models"]
     if [row["model"] for row in models] != list(MODELS):
-        raise AnalysisBlockedError("출력 모델은 B96/B288/C96/D288 순서로 각각 한 번이어야 합니다.")
+        raise AnalysisBlockedError("출력 모델은 B192/B384/C192/D384 순서로 각각 한 번이어야 합니다.")
     expected_parameter_keys = {
-        "B96": {"c80", "w"},
-        "B288": {"c80", "w"},
-        "C96": {"c80_ref", "w"},
-        "D288": {"c80_ref", "beta", "w"},
+        "B192": {"c80", "w"},
+        "B384": {"c80", "w"},
+        "C192": {"c80_ref", "w"},
+        "D384": {"c80_ref", "beta", "w"},
     }
-    expected_training = {"B96": 96, "B288": 288, "C96": 96, "D288": 288}
+    expected_training = {
+        "B192": REFERENCE_WIDTH_TRIALS,
+        "B384": CALIBRATION_TOTAL_TRIALS,
+        "C192": REFERENCE_WIDTH_TRIALS,
+        "D384": CALIBRATION_TOTAL_TRIALS,
+    }
     requested_bootstrap = int(payload["analysis_specification"]["bootstrap_replicates"])
     if (
         payload.get("data_origin") == "human"
@@ -1312,7 +1364,7 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
                 f"{model}: 사람 교정 산출물에는 C80 제시범위 검사가 필요합니다."
             )
         if isinstance(range_checks, list):
-            expected_check_count = 1 if model in {"B96", "C96"} else 3
+            expected_check_count = 1 if model in {"B192", "C192"} else 3
             if len(range_checks) != expected_check_count:
                 raise AnalysisBlockedError(
                     f"{model}: C80 제시범위 검사 굵기 수가 잘못됐습니다."
@@ -1350,7 +1402,7 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
                 f"{model}: bootstrap 요청 수가 analysis specification과 다릅니다."
             )
         expected_pairing_id = (
-            PRIMARY_BOOTSTRAP_PAIRING_ID if model in {"B96", "C96"} else None
+            PRIMARY_BOOTSTRAP_PAIRING_ID if model in {"B192", "C192"} else None
         )
         if (
             "replicate_pairing_id" in bootstrap
@@ -1412,18 +1464,18 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
         all_converged &= bool(row["fit"]["converged"] and bootstrap["converged"])
 
     by_model = {row["model"]: row for row in models}
-    b96_predictions = {
+    b192_predictions = {
         row["stroke_width_px"]: row
-        for row in by_model["B96"]["held_out_candidate_predictions"]
+        for row in by_model["B192"]["held_out_candidate_predictions"]
     }
-    c96_predictions = {
+    c192_predictions = {
         row["stroke_width_px"]: row
-        for row in by_model["C96"]["held_out_candidate_predictions"]
+        for row in by_model["C192"]["held_out_candidate_predictions"]
     }
-    if set(b96_predictions) != set(c96_predictions):
-        raise AnalysisBlockedError("B96/C96 held-out 후보 굵기가 다릅니다.")
-    for width_px, b_prediction in b96_predictions.items():
-        c_prediction = c96_predictions[width_px]
+    if set(b192_predictions) != set(c192_predictions):
+        raise AnalysisBlockedError("B192/C192 held-out 후보 굵기가 다릅니다.")
+    for width_px, b_prediction in b192_predictions.items():
+        c_prediction = c192_predictions[width_px]
         if (
             b_prediction.get("bootstrap_pairing_id") != PRIMARY_BOOTSTRAP_PAIRING_ID
             or c_prediction.get("bootstrap_pairing_id") != PRIMARY_BOOTSTRAP_PAIRING_ID
@@ -1434,7 +1486,7 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
         b_samples = np.asarray(b_prediction["bootstrap_c80_samples"], dtype=float)
         c_samples = np.asarray(c_prediction["bootstrap_c80_samples"], dtype=float)
         if b_samples.shape != c_samples.shape:
-            raise AnalysisBlockedError("B96/C96 paired bootstrap 표본 수가 다릅니다.")
+            raise AnalysisBlockedError("B192/C192 paired bootstrap 표본 수가 다릅니다.")
         if b_samples.size:
             point_ratio = float(c_prediction["c80_sim"]) / float(
                 b_prediction["c80_sim"]
@@ -1443,7 +1495,7 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
                 c_samples, b_samples * point_ratio, rtol=1e-8, atol=1e-10
             ):
                 raise AnalysisBlockedError(
-                    "B96/C96 bootstrap 표본이 같은 모의 반응 복제로 짝지어지지 않았습니다."
+                    "B192/C192 bootstrap 표본이 같은 모의 반응 복제로 짝지어지지 않았습니다."
                 )
 
     sensitivity = participant["width_slope_sensitivity"]
@@ -1485,9 +1537,9 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
     )
     if sensitivity["interpretation"] != expected_interpretation:
         raise AnalysisBlockedError("교정 공통-w 민감도 interpretation이 수치와 다릅니다.")
-    d288_ready = bool(
-        by_model["D288"]["fit"]["converged"]
-        and by_model["D288"]["bootstrap"]["converged"]
+    d384_ready = bool(
+        by_model["D384"]["fit"]["converged"]
+        and by_model["D384"]["bootstrap"]["converged"]
     )
     if not comparison_resolved:
         expected_eligible = False
@@ -1495,18 +1547,18 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
     elif free_w_preferred:
         expected_eligible = False
         expected_reason = "free_w_lower_aic"
-    elif not d288_ready:
+    elif not d384_ready:
         expected_eligible = False
-        expected_reason = "d288_numerically_incomplete"
+        expected_reason = "d384_numerically_incomplete"
     else:
         expected_eligible = True
-        expected_reason = "shared_w_retained_and_d288_numerically_complete"
+        expected_reason = "shared_w_retained_and_d384_numerically_complete"
     if (
-        sensitivity["d288_beta_interpretation_eligible"] != expected_eligible
-        or sensitivity["d288_beta_interpretation_reason"] != expected_reason
+        sensitivity["d384_beta_interpretation_eligible"] != expected_eligible
+        or sensitivity["d384_beta_interpretation_reason"] != expected_reason
     ):
         raise AnalysisBlockedError(
-            "D288 beta 해석 가능 플래그가 공통-w 민감도/수렴 상태와 다릅니다."
+            "D384 beta 해석 가능 플래그가 공통-w 민감도/수렴 상태와 다릅니다."
         )
     expected_status = "complete" if all_converged else "incomplete_numerical_convergence"
     if participant["analysis_status"] != expected_status:
@@ -1653,6 +1705,8 @@ def analyze_calibration(
         },
         "analysis_specification": {
             "models": list(MODELS),
+            "calibration_trials_per_width": list(CALIBRATION_WIDTH_TRIAL_COUNTS),
+            "session_block_count": block_count_from_config(config),
             "reference_width_policy": "middle_of_three_sorted_calibration_widths",
             "confidence": CONFIDENCE,
             "bootstrap_replicates": bootstrap_replicates,
@@ -1722,8 +1776,8 @@ def _write_json_atomic(payload: Mapping[str, Any], output: Path, *, overwrite: b
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "동결 설정과 3굵기×96 완료 trial JSONL을 검증한 뒤 "
-            "B96/B288/C96/D288 calibration-only 중간 산출물을 만듭니다."
+            "동결 설정과 96/192/96회 완료 trial JSONL을 검증한 뒤 "
+            "B192/B384/C192/D384 calibration-only 중간 산출물을 만듭니다."
         )
     )
     parser.add_argument("--config", type=Path, required=True, help="동결 experiment_config JSON")
@@ -1731,7 +1785,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--calibration-manifest",
         type=Path,
-        help="사람 자료에 필수인 전체 288시행 compiled calibration pixel manifest",
+        help="사람 자료에 필수인 전체 384시행 compiled calibration pixel manifest",
     )
     parser.add_argument("--output", type=Path, required=True, help="새 calibration_model_fits JSON")
     parser.add_argument("--bootstrap-replicates", type=int, default=1000)

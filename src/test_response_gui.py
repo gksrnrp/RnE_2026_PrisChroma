@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,6 +14,7 @@ from response_gui import (
     ResponseGUIBlockedError,
     ScreenMetrics,
     VerifiedTrial,
+    _assert_repository_stage_ready,
     build_trial_record,
     prepare_collection,
     remaining_trials,
@@ -120,7 +122,8 @@ def human_config() -> dict:
                 }
                 for width in calibration_widths
             ],
-            "trials_per_width": 96,
+            "trials_per_width": [96, 192, 96],
+            "session_block_count": 4,
         },
         "validation": {
             "candidates": [
@@ -145,11 +148,11 @@ def human_config() -> dict:
         },
         "sampling": {
             "delta_e00_levels": [0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0, 5.6, 7.9, 11.1, 15.6],
-            "randomization": "balanced-4-session-blocks-within-block-shuffle",
+            "randomization": "balanced-mixed-width-session-blocks-within-block-shuffle",
             "practice_trials": 6,
         },
         "model_plan": {
-            "models": ["B96", "B288", "C96", "D288"],
+            "models": ["B192", "B384", "C192", "D384"],
             "include_szafir_transfer": True,
             "szafir_probability_coordinate": 0.5,
         },
@@ -254,6 +257,38 @@ def bare_verified(row: dict) -> VerifiedTrial:
     )
 
 
+class RepositoryReadinessGateTests(unittest.TestCase):
+    def test_calibration_and_validation_use_their_own_stage_gate(self) -> None:
+        report = {
+            "ready_for_calibration_collection": True,
+            "ready_for_validation_collection": False,
+            "blocked": {
+                "calibration_collection": [],
+                "validation_collection": [
+                    {"check_id": "validation_plan_ready", "message": "plan missing"}
+                ],
+            },
+        }
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=json.dumps(report), stderr=""
+        )
+        with patch("response_gui.subprocess.run", return_value=completed):
+            _assert_repository_stage_ready("calibration", Path.cwd())
+            _assert_repository_stage_ready("practice", Path.cwd())
+            with self.assertRaisesRegex(
+                ResponseGUIBlockedError, "validation_plan_ready"
+            ):
+                _assert_repository_stage_ready("validation", Path.cwd())
+
+    def test_invalid_readiness_output_fails_closed(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="not-json", stderr=""
+        )
+        with patch("response_gui.subprocess.run", return_value=completed):
+            with self.assertRaisesRegex(ResponseGUIBlockedError, "JSON"):
+                _assert_repository_stage_ready("calibration", Path.cwd())
+
+
 class ScreenGateTests(unittest.TestCase):
     def test_exact_physical_screen_and_scale_pass(self) -> None:
         validate_screen_metrics(
@@ -331,7 +366,7 @@ class TrialRecordTests(unittest.TestCase):
         self.assertIsNone(aborted["response_time_ms"])
 
     def test_validation_record_is_bound_to_frozen_plan_hash(self) -> None:
-        row = trial_row(289, self.digest, "b" * 40, phase="validation")
+        row = trial_row(385, self.digest, "b" * 40, phase="validation")
         row.update(
             validation_plan_sha256="c" * 64,
             validation_block_id="V01",
@@ -673,7 +708,7 @@ class CollectionPreparationTests(unittest.TestCase):
                 config_path,
                 calibration_path,
                 seed=17,
-                first_trial_id=289,
+                first_trial_id=385,
                 allow_synthetic=True,
             )
             plan_path = root / "validation-plan.json"

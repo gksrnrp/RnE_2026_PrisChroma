@@ -71,10 +71,10 @@ def _threshold_payload(config: dict, config_sha: str, plan: dict) -> dict:
     width_deg = plan["selected_width"]["stroke_width_deg"]
     template = participant["predictions"][0]
     model_values = {
-        "B96": (2.1, 1.8, 2.4, 96),
-        "B288": (2.3, 2.0, 2.6, 288),
-        "C96": (2.8, 2.5, 3.1, 96),
-        "D288": (2.9, 2.6, 3.2, 288),
+        "B192": (2.1, 1.8, 2.4, 192),
+        "B384": (2.3, 2.0, 2.6, 384),
+        "C192": (2.8, 2.5, 3.1, 192),
+        "D384": (2.9, 2.6, 3.2, 384),
     }
     participant["predictions"] = [
         {
@@ -203,14 +203,14 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
         self.assertFalse(result["analysis_scope"]["selection_after_validation_allowed"])
         self.assertTrue(result["claim_flags"]["all_frozen_validation_levels_reported"])
         self.assertTrue(
-            result["claim_flags"]["d288_correction_computation_allowed"]
+            result["claim_flags"]["d384_correction_computation_allowed"]
         )
         self.assertTrue(
-            result["claim_flags"]["d288_beta_or_width_effect_claim_allowed"]
+            result["claim_flags"]["d384_beta_or_width_effect_claim_allowed"]
         )
         self.assertEqual(
             result["interpretation"]["calibration_width_slope_sensitivity"][
-                "d288_beta_interpretation_eligible"
+                "d384_beta_interpretation_eligible"
             ],
             True,
         )
@@ -251,7 +251,7 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
             "within_observed_pooled_c80_95ci",
         )
 
-    def test_ineligible_d288_beta_claim_does_not_block_d288_correction(self) -> None:
+    def test_ineligible_d384_beta_claim_does_not_block_d384_correction(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             directory = Path(name)
             config_path, plan_path, thresholds_path, _, thresholds = _fixture(directory)
@@ -264,8 +264,8 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
                 comparison_resolved=True,
                 free_w_preferred=True,
                 interpretation="free_w_lower_aic_warning_not_selected",
-                d288_beta_interpretation_eligible=False,
-                d288_beta_interpretation_reason="free_w_lower_aic",
+                d384_beta_interpretation_eligible=False,
+                d384_beta_interpretation_reason="free_w_lower_aic",
             )
             _write_json(thresholds_path, thresholds)
             with patch(
@@ -279,13 +279,13 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
                     participant_id="P_TEST_01",
                     models=MODELS,
                 )
-        self.assertTrue(result["claim_flags"]["d288_correction_computation_allowed"])
+        self.assertTrue(result["claim_flags"]["d384_correction_computation_allowed"])
         self.assertFalse(
-            result["claim_flags"]["d288_beta_or_width_effect_claim_allowed"]
+            result["claim_flags"]["d384_beta_or_width_effect_claim_allowed"]
         )
         self.assertTrue(
             all(
-                any(row["model"] == "D288" for row in level["corrections"])
+                any(row["model"] == "D384" for row in level["corrections"])
                 for level in result["level_results"]
             )
         )
@@ -299,7 +299,7 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
                     plan_path,
                     thresholds_path,
                     participant_id="P_TEST_01",
-                    models=("B96", "C96"),
+                    models=("B192", "C192"),
                 )
 
     def test_human_mode_rejects_post_validation_source_level_selection(self) -> None:
@@ -410,7 +410,7 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
                 thresholds_path,
                 participant_id="P_TEST_01",
                 source_level_index=1,
-                models=("B96",),
+                models=("B192",),
                 development_mode=True,
             )
         self.assertEqual(result["data_origin"], "synthetic")
@@ -418,9 +418,9 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
         self.assertFalse(result["research_conclusion_allowed"])
         self.assertEqual(result["analysis_scope"]["level_count"], 1)
         self.assertFalse(result["claim_flags"]["all_frozen_validation_levels_reported"])
-        self.assertTrue(result["claim_flags"]["d288_correction_computation_allowed"])
+        self.assertTrue(result["claim_flags"]["d384_correction_computation_allowed"])
         self.assertFalse(
-            result["claim_flags"]["d288_beta_or_width_effect_claim_allowed"]
+            result["claim_flags"]["d384_beta_or_width_effect_claim_allowed"]
         )
         self.assertEqual(result["source_level"], result["level_results"][0]["source_level"])
         self.assertEqual(result["corrections"], result["level_results"][0]["corrections"])
@@ -454,7 +454,7 @@ class PathCorrectionAnalysisTests(unittest.TestCase):
                     plan_path,
                     thresholds_path,
                     participant_id="P_TEST_01",
-                    models=("B96",),
+                    models=("B192",),
                     development_mode=True,
                 )
 

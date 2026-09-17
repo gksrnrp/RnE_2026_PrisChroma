@@ -73,7 +73,8 @@
       {"width_px": 2, "width_deg": 0.02},
       {"width_px": 3, "width_deg": 0.03}
     ],
-    "trials_per_width": 96
+    "trials_per_width": [96, 192, 96],
+    "session_block_count": 4
   },
   "validation": {
     "candidates": [
@@ -87,11 +88,11 @@
   },
   "sampling": {
     "delta_e00_levels": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
-    "randomization": "balanced-4-session-blocks-within-block-shuffle",
+    "randomization": "balanced-mixed-width-session-blocks-within-block-shuffle",
     "practice_trials": 6
   },
   "model_plan": {
-    "models": ["B96", "B288", "C96", "D288"],
+    "models": ["B192", "B384", "C192", "D384"],
     "include_szafir_transfer": true,
     "szafir_probability_coordinate": 0.5
   },

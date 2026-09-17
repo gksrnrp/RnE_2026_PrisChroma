@@ -30,6 +30,11 @@ from typing import Any, Mapping, Sequence
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from calibration_design import (
+    CALIBRATION_TOTAL_TRIALS,
+    block_count_from_config,
+    block_trial_count,
+)
 from experiment_runner import (
     CollectionBlockedError,
     JournalError,
@@ -445,6 +450,7 @@ def _manifest_rows(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
 def _select_rows(
     manifest: Mapping[str, Any],
     *,
+    config: Mapping[str, Any],
     phase: str,
     session_block: int | None,
     validation_block_id: str | None,
@@ -454,18 +460,24 @@ def _select_rows(
     if phase == "calibration":
         if validation_block_id is not None:
             raise ResponseGUIBlockedError("calibration에는 validation block을 지정하지 않습니다.")
-        if session_block not in {1, 2, 3, 4}:
-            raise ResponseGUIBlockedError("calibration은 --session-block 1~4가 필요합니다.")
-        if len(rows) != 288:
-            raise ResponseGUIBlockedError("calibration manifest는 전체 288시행이어야 합니다.")
+        block_count = block_count_from_config(config)
+        if session_block not in set(range(1, block_count + 1)):
+            raise ResponseGUIBlockedError(
+                f"calibration은 --session-block 1~{block_count}가 필요합니다."
+            )
+        if len(rows) != CALIBRATION_TOTAL_TRIALS:
+            raise ResponseGUIBlockedError("calibration manifest는 전체 384시행이어야 합니다.")
         generation = manifest.get("color_generation")
         if isinstance(generation, Mapping) and generation.get("development_partial_schedule") is True:
             raise ResponseGUIBlockedError("부분 개발 manifest로 사람 calibration을 실행할 수 없습니다.")
         if any(row.get("phase", "calibration") != "calibration" for row in rows):
             raise ResponseGUIBlockedError("calibration manifest에 다른 phase 시행이 섞였습니다.")
         selected = [row for row in rows if row.get("session_block") == session_block]
-        if len(selected) != 72:
-            raise ResponseGUIBlockedError("선택한 calibration session block은 정확히 72시행이어야 합니다.")
+        expected = block_trial_count(config)
+        if len(selected) != expected:
+            raise ResponseGUIBlockedError(
+                f"선택한 calibration session block은 정확히 {expected}시행이어야 합니다."
+            )
         return selected
     if phase == "practice":
         if session_block is not None or validation_block_id is not None:
@@ -486,9 +498,9 @@ def _select_rows(
             raise ResponseGUIBlockedError("validation은 --validation-block V01~V03가 필요합니다.")
         if len(rows) != 192 or any(row.get("phase") != "validation" for row in rows):
             raise ResponseGUIBlockedError("validation manifest는 validation 192시행이어야 합니다.")
-        if {row.get("trial_id") for row in rows} != set(range(289, 481)):
+        if {row.get("trial_id") for row in rows} != set(range(385, 577)):
             raise ResponseGUIBlockedError(
-                "validation manifest는 예약 trial_id 289~480을 정확히 사용해야 합니다."
+                "validation manifest는 예약 trial_id 385~576을 정확히 사용해야 합니다."
             )
         selected = [
             row for row in rows if row.get("validation_block_id") == validation_block_id
@@ -714,6 +726,7 @@ def prepare_collection(
             ) from error
     rows = _select_rows(
         manifest,
+        config=config,
         phase=phase,
         session_block=session_block,
         validation_block_id=validation_block_id,
@@ -777,6 +790,7 @@ def prepare_collection(
         )
         calibration_rows = _select_rows(
             calibration,
+            config=config,
             phase="calibration",
             session_block=1,
             validation_block_id=None,
@@ -1527,6 +1541,59 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _assert_repository_stage_ready(phase: str, repo_root: Path) -> None:
+    """Require the full repository gate before opening a human-session GUI."""
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(repo_root / "src" / "research_readiness.py"),
+            "--root",
+            str(repo_root),
+            "--format",
+            "json",
+        ],
+        cwd=repo_root / "src",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=180,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise ResponseGUIBlockedError(
+            "전체 연구 준비도 검사를 실행하지 못했습니다: "
+            + (completed.stderr.strip() or f"exit={completed.returncode}")
+        )
+    try:
+        report = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise ResponseGUIBlockedError(
+            "전체 연구 준비도 검사 결과가 유효한 JSON이 아닙니다."
+        ) from error
+    readiness_key = (
+        "ready_for_validation_collection"
+        if phase == "validation"
+        else "ready_for_calibration_collection"
+    )
+    if report.get(readiness_key) is True:
+        return
+    blocked_group = (
+        "validation_collection" if phase == "validation" else "calibration_collection"
+    )
+    blocked = report.get("blocked", {}).get(blocked_group, [])
+    reasons = "; ".join(
+        f"{item.get('check_id', 'unknown')}: {item.get('message', '')}"
+        for item in blocked
+        if isinstance(item, Mapping)
+    )
+    raise ResponseGUIBlockedError(
+        "전체 연구 준비도 게이트가 이 사람 세션을 허용하지 않습니다"
+        + (f": {reasons}" if reasons else ".")
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
@@ -1593,6 +1660,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("자료 수집 차단: --journal과 --session-id가 필요합니다.", file=sys.stderr)
         return 2
     try:
+        _assert_repository_stage_ready(args.phase, plan.repo_root)
         return run_gui(plan, journal_path=args.journal, session_id=args.session_id)
     except (ResponseGUIBlockedError, JournalError, OSError) as error:
         print(f"자료 수집 차단: {error}", file=sys.stderr)

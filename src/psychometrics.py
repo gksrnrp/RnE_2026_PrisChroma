@@ -1,7 +1,7 @@
 """4AFC direct-C80 심리측정 함수와 사전등록 모델의 최대우도 적합.
 
 이 모듈은 실제 참가자 결과를 만들지 않는다. 양의 색차 ``x``에서의 관측
-정답(0/1)을 입력받아 B96, B288, C96, D288을 적합하고, 모수적
+정답(0/1)을 입력받아 B192, B384, C192, D384을 적합하고, 모수적
 부트스트랩으로 수치적 불확실성을 계산하는 분석 기반만 제공한다.
 
 SciPy가 없는 실행 환경에서도 같은 계산을 재현할 수 있도록 작은 차원의
@@ -156,17 +156,17 @@ class FitResult:
     def c80(self, stroke_width: Sequence[Real] | np.ndarray | Real) -> np.ndarray | float:
         """지정한 굵기에서 모델이 예측한 C80을 반환한다."""
         widths = _positive_array(stroke_width, "stroke_width")
-        if self.model in {"B96", "B288"}:
+        if self.model in {"B192", "B384"}:
             result = np.full(widths.shape, self.parameters["c80"], dtype=float)
-        elif self.model == "D288":
+        elif self.model == "D384":
             if self.reference_width is None:
-                raise RuntimeError("D288 적합에 reference_width가 없습니다.")
+                raise RuntimeError("D384 적합에 reference_width가 없습니다.")
             result = self.parameters["c80_ref"] * (
                 widths / self.reference_width
             ) ** self.parameters["beta"]
-        elif self.model == "C96":
+        elif self.model == "C192":
             if self.relative_scale is None:
-                raise RuntimeError("C96 적합에 relative_scale 함수가 없습니다.")
+                raise RuntimeError("C192 적합에 relative_scale 함수가 없습니다.")
             result = self.parameters["c80_ref"] * _evaluate_relative_scale(
                 self.relative_scale, widths
             )
@@ -211,17 +211,17 @@ class BootstrapResult:
         width = _finite_scalar(stroke_width, "stroke_width", positive=True)
         if not self.successful_replicates:
             raise ValueError("성공한 bootstrap 복제가 없어 C80 CI를 계산할 수 없습니다.")
-        if self.model in {"B96", "B288"}:
+        if self.model in {"B192", "B384"}:
             values = np.asarray(self.estimates["c80"], dtype=float)
-        elif self.model == "D288":
+        elif self.model == "D384":
             if self.reference_width is None:
-                raise RuntimeError("D288 bootstrap에 reference_width가 없습니다.")
+                raise RuntimeError("D384 bootstrap에 reference_width가 없습니다.")
             values = np.asarray(self.estimates["c80_ref"], dtype=float) * (
                 width / self.reference_width
             ) ** np.asarray(self.estimates["beta"], dtype=float)
-        elif self.model == "C96":
+        elif self.model == "C192":
             if self.relative_scale is None:
-                raise RuntimeError("C96 bootstrap에 relative_scale 함수가 없습니다.")
+                raise RuntimeError("C192 bootstrap에 relative_scale 함수가 없습니다.")
             scale = _evaluate_relative_scale(
                 self.relative_scale, np.asarray(width, dtype=float)
             )
@@ -349,7 +349,7 @@ def _constant_fit(
         (math.log(0.02), math.log(10.0)),
     ]
 
-    if model == "C96":
+    if model == "C192":
         assert relative_scale is not None
         scale = _evaluate_relative_scale(relative_scale, widths)
     else:
@@ -366,7 +366,7 @@ def _constant_fit(
     )
     c80 = math.exp(float(optimized.x[0]))
     parameters = {
-        ("c80_ref" if model == "C96" else "c80"): c80,
+        ("c80_ref" if model == "C192" else "c80"): c80,
         "w": math.exp(float(optimized.x[1])),
     }
     return FitResult(
@@ -383,7 +383,7 @@ def _constant_fit(
     )
 
 
-def fit_b96(
+def fit_b192(
     delta_e00: Sequence[Real] | np.ndarray,
     correct: Sequence[int | bool] | np.ndarray,
     stroke_width: Sequence[Real] | np.ndarray,
@@ -391,7 +391,7 @@ def fit_b96(
     reference_width: Real,
     lapse: Real = 0.02,
 ) -> FitResult:
-    """기준 굵기 자료만 사용해 상수 C80 모델(B96)을 적합한다."""
+    """기준 굵기 자료만 사용해 상수 C80 모델(B192)을 적합한다."""
     x, answers, widths = _trial_arrays(delta_e00, correct, stroke_width)
     reference = _finite_scalar(reference_width, "reference_width", positive=True)
     lapse_value = _validate_lapse(lapse)
@@ -399,7 +399,7 @@ def fit_b96(
     if not np.any(selected):
         raise ValueError("reference_width와 일치하는 시행이 없습니다.")
     return _constant_fit(
-        "B96",
+        "B192",
         x[selected],
         answers[selected],
         widths[selected],
@@ -408,22 +408,22 @@ def fit_b96(
     )
 
 
-def fit_b288(
+def fit_b384(
     delta_e00: Sequence[Real] | np.ndarray,
     correct: Sequence[int | bool] | np.ndarray,
     stroke_width: Sequence[Real] | np.ndarray,
     *,
     lapse: Real = 0.02,
 ) -> FitResult:
-    """모든 굵기 자료를 하나의 상수 C80로 적합한다(B288)."""
+    """모든 굵기 자료를 하나의 상수 C80로 적합한다(B384)."""
     x, answers, widths = _trial_arrays(delta_e00, correct, stroke_width)
     lapse_value = _validate_lapse(lapse)
     return _constant_fit(
-        "B288", x, answers, widths, lapse=lapse_value, reference_width=None
+        "B384", x, answers, widths, lapse=lapse_value, reference_width=None
     )
 
 
-def fit_c96(
+def fit_c192(
     delta_e00: Sequence[Real] | np.ndarray,
     correct: Sequence[int | bool] | np.ndarray,
     stroke_width: Sequence[Real] | np.ndarray,
@@ -432,7 +432,7 @@ def fit_c96(
     relative_scale: RelativeScale,
     lapse: Real = 0.02,
 ) -> FitResult:
-    """기준 굵기의 B96과 Szafir 상대 배율을 결합해 C96을 적합한다."""
+    """기준 굵기의 B192과 Szafir 상대 배율을 결합해 C192을 적합한다."""
     x, answers, widths = _trial_arrays(delta_e00, correct, stroke_width)
     reference = _finite_scalar(reference_width, "reference_width", positive=True)
     lapse_value = _validate_lapse(lapse)
@@ -445,7 +445,7 @@ def fit_c96(
     if not np.any(selected):
         raise ValueError("reference_width와 일치하는 시행이 없습니다.")
     return _constant_fit(
-        "C96",
+        "C192",
         x[selected],
         answers[selected],
         widths[selected],
@@ -455,7 +455,7 @@ def fit_c96(
     )
 
 
-def fit_d288(
+def fit_d384(
     delta_e00: Sequence[Real] | np.ndarray,
     correct: Sequence[int | bool] | np.ndarray,
     stroke_width: Sequence[Real] | np.ndarray,
@@ -497,7 +497,7 @@ def fit_d288(
         step=np.asarray([0.25, 0.20, 0.20]),
     )
     return FitResult(
-        model="D288",
+        model="D384",
         parameters={
             "c80_ref": math.exp(float(optimized.x[0])),
             "beta": float(optimized.x[1]),
@@ -519,16 +519,16 @@ def _refit_like(
     answers: np.ndarray,
     widths: np.ndarray,
 ) -> FitResult:
-    if fit.model == "B96":
+    if fit.model == "B192":
         assert fit.reference_width is not None
-        return fit_b96(
+        return fit_b192(
             x, answers, widths, reference_width=fit.reference_width, lapse=fit.lapse
         )
-    if fit.model == "B288":
-        return fit_b288(x, answers, widths, lapse=fit.lapse)
-    if fit.model == "C96":
+    if fit.model == "B384":
+        return fit_b384(x, answers, widths, lapse=fit.lapse)
+    if fit.model == "C192":
         assert fit.reference_width is not None and fit.relative_scale is not None
-        return fit_c96(
+        return fit_c192(
             x,
             answers,
             widths,
@@ -536,9 +536,9 @@ def _refit_like(
             relative_scale=fit.relative_scale,
             lapse=fit.lapse,
         )
-    if fit.model == "D288":
+    if fit.model == "D384":
         assert fit.reference_width is not None
-        return fit_d288(
+        return fit_d384(
             x, answers, widths, reference_width=fit.reference_width, lapse=fit.lapse
         )
     raise ValueError(f"지원하지 않는 모델입니다: {fit.model}")
@@ -615,9 +615,9 @@ __all__ = [
     "MAX_LAPSE",
     "TARGET_ACCURACY",
     "direct_c80_probability",
-    "fit_b96",
-    "fit_b288",
-    "fit_c96",
-    "fit_d288",
+    "fit_b192",
+    "fit_b384",
+    "fit_c192",
+    "fit_d384",
     "parametric_bootstrap",
 ]

@@ -23,7 +23,7 @@ def _shared_fit(*, converged: bool, nll: float = 10.0) -> SharedWFit:
 
 def _free_fit(*, converged: bool, nll: float = 1.0) -> FitResult:
     return FitResult(
-        model="B288",
+        model="B384",
         parameters={"c80": 1.0, "w": 0.3},
         lapse=0.02,
         n_trials=2,
@@ -47,7 +47,7 @@ class SharedFreeWSensitivityTests(unittest.TestCase):
                 return_value=_shared_fit(converged=False),
             ),
             patch(
-                "validation_psychometrics.fit_b288",
+                "validation_psychometrics.fit_b384",
                 return_value=_free_fit(converged=True),
             ),
         ):
@@ -69,7 +69,7 @@ class SharedFreeWSensitivityTests(unittest.TestCase):
                 "validation_psychometrics.fit_shared_w",
                 return_value=_shared_fit(converged=True),
             ),
-            patch("validation_psychometrics.fit_b288", side_effect=free_fits),
+            patch("validation_psychometrics.fit_b384", side_effect=free_fits),
         ):
             result = compare_shared_vs_free_w_aic(
                 self.x, self.y, self.blocks, lapse=0.02
@@ -85,7 +85,7 @@ class SharedFreeWSensitivityTests(unittest.TestCase):
                 return_value=_shared_fit(converged=True),
             ),
             patch(
-                "validation_psychometrics.fit_b288",
+                "validation_psychometrics.fit_b384",
                 return_value=_free_fit(converged=True),
             ),
         ):
