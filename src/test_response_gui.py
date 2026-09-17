@@ -70,7 +70,9 @@ def human_config() -> dict:
             "viewing_distance_mm": viewing_distance_mm,
             "background_rgb": [117, 117, 117],
             "color_profile": "sRGB IEC61966-2.1",
+            "colorimetry_policy": "measured-display-colorimetry",
             "calibration_id": "CAL_GUI_01",
+            "brightness_percent": 50.0,
             "luminance_cd_m2": 120.0,
             "luminance_measurement_method": "calibrated colorimeter fixture",
             "width_measurement_method": "ruler fixture",
@@ -258,6 +260,22 @@ class ScreenGateTests(unittest.TestCase):
             human_config(), ScreenMetrics(
                 80, 80, 100.0, True, "test", "Windows test fixture", "CPython/Tk test fixture"
             )
+        )
+
+    def test_exact_150_percent_scale_passes_without_rescaling_pixels(self) -> None:
+        config = human_config()
+        config["display"]["os_scale_percent"] = 150.0
+        validate_screen_metrics(
+            config,
+            ScreenMetrics(
+                80,
+                80,
+                150.0,
+                True,
+                "test",
+                "Windows test fixture",
+                "CPython/Tk test fixture",
+            ),
         )
 
     def test_resolution_scale_and_dpi_mismatches_block(self) -> None:

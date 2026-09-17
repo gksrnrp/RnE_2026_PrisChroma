@@ -59,6 +59,7 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 _PSEUDONYM_RE = re.compile(r"^P[0-9A-Za-z_-]+$")
 _SESSION_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_PER_MONITOR_AWARE_V2 = ctypes.c_void_p(-4)
 
 
 def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -162,7 +163,7 @@ def _validate_schema(payload: Mapping[str, Any], schema_path: Path, label: str) 
 
 
 def _set_windows_dpi_awareness() -> None:
-    """가능한 가장 강한 Windows DPI awareness를 Tk 생성 전에 요청한다."""
+    """Tk 생성 전에 Windows Per-Monitor V2 DPI awareness를 확증한다."""
 
     if os.name != "nt":
         return
@@ -171,19 +172,24 @@ def _set_windows_dpi_awareness() -> None:
         setter = user32.SetProcessDpiAwarenessContext
         setter.argtypes = [ctypes.c_void_p]
         setter.restype = ctypes.c_bool
-        setter(ctypes.c_void_p(-4))  # PER_MONITOR_AWARE_V2
-        return
-    except (AttributeError, OSError):
-        pass
-    try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        return
-    except (AttributeError, OSError):
-        pass
-    try:
-        user32.SetProcessDPIAware()
-    except (AttributeError, OSError):
-        pass
+        # 이미 다른 코드가 awareness를 고정한 프로세스에서는 FALSE가 반환될 수
+        # 있으므로 반환값만 믿지 않고 현재 thread context를 아래에서 확인한다.
+        setter(_PER_MONITOR_AWARE_V2)
+        get_context = user32.GetThreadDpiAwarenessContext
+        get_context.restype = ctypes.c_void_p
+        contexts_equal = user32.AreDpiAwarenessContextsEqual
+        contexts_equal.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        contexts_equal.restype = ctypes.c_bool
+        if not bool(contexts_equal(get_context(), _PER_MONITOR_AWARE_V2)):
+            raise ResponseGUIBlockedError(
+                "Windows Per-Monitor V2 DPI awareness를 확증하지 못했습니다."
+            )
+    except ResponseGUIBlockedError:
+        raise
+    except (AttributeError, OSError, ValueError) as error:
+        raise ResponseGUIBlockedError(
+            f"Windows Per-Monitor V2 DPI awareness를 설정하지 못했습니다: {error}"
+        ) from error
 
 
 def inspect_screen_metrics() -> ScreenMetrics:
@@ -198,12 +204,6 @@ def inspect_screen_metrics() -> ScreenMetrics:
     try:
         width = int(user32.GetSystemMetrics(0))
         height = int(user32.GetSystemMetrics(1))
-        get_context = user32.GetThreadDpiAwarenessContext
-        get_context.restype = ctypes.c_void_p
-        get_awareness = user32.GetAwarenessFromDpiAwarenessContext
-        get_awareness.argtypes = [ctypes.c_void_p]
-        get_awareness.restype = ctypes.c_int
-        awareness = int(get_awareness(get_context()))
         dpi = float(user32.GetDpiForSystem())
     except (AttributeError, OSError, ValueError) as error:
         raise ResponseGUIBlockedError(
@@ -223,8 +223,8 @@ def inspect_screen_metrics() -> ScreenMetrics:
         width_px=width,
         height_px=height,
         os_scale_percent=dpi / 96.0 * 100.0,
-        dpi_awareness_enabled=awareness in {1, 2},
-        source="Windows GetSystemMetrics/GetDpiForSystem",
+        dpi_awareness_enabled=True,
+        source="Windows Per-Monitor-V2/GetSystemMetrics/GetDpiForSystem",
         operating_system=platform.platform(),
         native_gui_runtime=f"CPython {platform.python_version()}; Tk {tk_patchlevel}",
     )
@@ -273,6 +273,30 @@ def validate_screen_metrics(
         raise ResponseGUIBlockedError(
             "운영체제 화면 배율이 동결 config와 다릅니다: "
             f"관측={metrics.os_scale_percent:.2f}%, 동결={float(expected_scale):.2f}%"
+        )
+
+
+def _validate_tk_window_dpi(root: Any, expected_scale_percent: float) -> None:
+    """실제 전체화면 Tk HWND가 동결 배율의 물리 DPI를 쓰는지 확인한다."""
+
+    if os.name != "nt":
+        raise ResponseGUIBlockedError("Tk 창 DPI 검증은 Windows에서만 지원합니다.")
+    try:
+        root.update_idletasks()
+        hwnd = int(root.winfo_id())
+        get_dpi = ctypes.windll.user32.GetDpiForWindow
+        get_dpi.argtypes = [ctypes.c_void_p]
+        get_dpi.restype = ctypes.c_uint
+        observed_dpi = int(get_dpi(ctypes.c_void_p(hwnd)))
+    except (AttributeError, OSError, TypeError, ValueError) as error:
+        raise ResponseGUIBlockedError(
+            f"Tk 창의 물리 DPI를 읽지 못했습니다: {error}"
+        ) from error
+    expected_dpi = int(round(96.0 * float(expected_scale_percent) / 100.0))
+    if observed_dpi <= 0 or observed_dpi != expected_dpi:
+        raise ResponseGUIBlockedError(
+            "Tk 창 DPI가 동결 Windows 배율과 다릅니다: "
+            f"관측={observed_dpi}, 동결={expected_dpi}"
         )
 
 
@@ -1155,6 +1179,13 @@ class ExperimentWindow:
         if self.session_start_utc is None:
             self.session_start_utc = datetime.now(timezone.utc)
         self.root.update_idletasks()
+        try:
+            _validate_tk_window_dpi(
+                self.root, self.plan.config["display"]["os_scale_percent"]
+            )
+        except ResponseGUIBlockedError as error:
+            self._fatal(str(error))
+            return
         observed = (self.root.winfo_width(), self.root.winfo_height())
         expected = (
             self.plan.config["display"]["resolution_width_px"],

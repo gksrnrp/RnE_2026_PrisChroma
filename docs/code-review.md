@@ -627,3 +627,23 @@ direct-C80 프로토콜 및 중단 처리와 호환되지 않는다. 일부 코�
 근거로 사용하지 않는다. `.gitignore`는 앞으로의 추가만 막을 뿐 이미 원격
 브랜치에 올라간 기록을 지우지 못하므로, 저장소 관리자가 참가자 동의·공개 범위를
 확인한 뒤 필요하면 별도 보존 및 GitHub 기록 정리 절차를 결정해야 한다.
+
+---
+
+## 19. FX517ZC 무계측 색도 정책과 150% DPI 게이트 (2026-09-17, Codex)
+
+실험 후보 장치는 ASUS FX517ZC의 2560×1440, 165 Hz 내부 화면이며 Windows
+배율은 150%, 밝기는 70%, 발광영역 가로는 342 mm로 보고됐다. Windows 자동 색
+관리는 켜져 있고 임의로 추가했던 일반 sRGB 프로필은 제거했다. 휘도계·색도계는
+확보하지 못했으므로 절대 휘도나 실제 발광 색좌표를 꾸며 넣지 않는다.
+
+사람 config에 `colorimetry_policy`와 `brightness_percent`를 추가했다.
+`nominal-srgb-device-specific` 정책에서만 `luminance_cd_m2=null`을 허용하며,
+측정법 문자열은 정확히 `not_measured_no_luminance_meter`여야 한다.
+`measured-display-colorimetry` 정책에서 null을 넣거나 밝기 100%를 넘기면
+수집 게이트가 차단된다. 이 경로는 장치 독립적 절대 ΔE00 주장을 허용하지 않는다.
+
+기존 DPI 설정 함수는 Windows API가 FALSE를 반환해도 성공으로 간주했고 system
+aware와 per-monitor aware를 구분하지 않았다. 이제 Tk 생성 전에 Per-Monitor V2
+context를 정확히 비교하고, 실제 전체화면 HWND의 DPI가 동결 배율과 같은지도
+확인한다. 150% 설정은 144 DPI이며 PNG 자체는 리샘플링하지 않는다.

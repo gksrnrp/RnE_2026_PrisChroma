@@ -43,7 +43,9 @@ def frozen_config():
             "viewing_distance_mm": 600,
             "background_rgb": [117, 117, 117],
             "color_profile": "sRGB IEC61966-2.1",
+            "colorimetry_policy": "measured-display-colorimetry",
             "calibration_id": "CAL-2026-09-14",
+            "brightness_percent": 50.0,
             "luminance_cd_m2": 120.0,
             "luminance_measurement_method": "calibrated colorimeter fixture",
             "width_measurement_method": "ruler fixture",
@@ -225,6 +227,39 @@ class HumanCollectionGateTests(unittest.TestCase):
         unapproved["privacy"]["approved"] = False
         with self.assertRaises(CollectionBlockedError):
             assert_human_collection_allowed(unapproved)
+
+    def test_nominal_srgb_policy_allows_explicitly_unmeasured_luminance(self):
+        config = frozen_config()
+        config["display"]["colorimetry_policy"] = "nominal-srgb-device-specific"
+        config["display"]["luminance_cd_m2"] = None
+        config["display"]["luminance_measurement_method"] = (
+            "not_measured_no_luminance_meter"
+        )
+        assert_schedule_config(config)
+
+    def test_unmeasured_luminance_requires_nominal_policy_and_exact_method(self):
+        wrong_policy = frozen_config()
+        wrong_policy["display"]["luminance_cd_m2"] = None
+        wrong_policy["display"]["luminance_measurement_method"] = (
+            "not_measured_no_luminance_meter"
+        )
+        with self.assertRaisesRegex(CollectionBlockedError, "nominal-srgb"):
+            assert_schedule_config(wrong_policy)
+
+        wrong_method = frozen_config()
+        wrong_method["display"]["colorimetry_policy"] = (
+            "nominal-srgb-device-specific"
+        )
+        wrong_method["display"]["luminance_cd_m2"] = None
+        wrong_method["display"]["luminance_measurement_method"] = "estimated"
+        with self.assertRaisesRegex(CollectionBlockedError, "not_measured"):
+            assert_schedule_config(wrong_method)
+
+    def test_brightness_percent_above_100_is_blocked(self):
+        config = frozen_config()
+        config["display"]["brightness_percent"] = 101.0
+        with self.assertRaisesRegex(CollectionBlockedError, "100"):
+            assert_schedule_config(config)
 
     def test_fixed_response_deadline_is_blocked_to_prevent_selective_retry_bias(self):
         config = frozen_config()

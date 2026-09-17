@@ -88,7 +88,9 @@
         "viewing_distance_mm",
         "background_rgb",
         "color_profile",
+        "colorimetry_policy",
         "calibration_id",
+        "brightness_percent",
         "luminance_cd_m2",
         "luminance_measurement_method",
         "width_measurement_method",
@@ -110,8 +112,22 @@
         "viewing_distance_mm": {"type": "number", "exclusiveMinimum": 0},
         "background_rgb": {"$ref": "#/$defs/rgb"},
         "color_profile": {"$ref": "#/$defs/nonempty_string"},
+        "colorimetry_policy": {
+          "enum": [
+            "measured-display-colorimetry",
+            "nominal-srgb-device-specific"
+          ]
+        },
         "calibration_id": {"$ref": "#/$defs/nonempty_string"},
-        "luminance_cd_m2": {"type": "number", "exclusiveMinimum": 0},
+        "brightness_percent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "luminance_cd_m2": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
         "luminance_measurement_method": {"$ref": "#/$defs/nonempty_string"},
         "width_measurement_method": {"$ref": "#/$defs/nonempty_string"},
         "viewing_distance_control": {"$ref": "#/$defs/nonempty_string"},
@@ -121,7 +137,35 @@
         "ambient_light_condition": {"$ref": "#/$defs/nonempty_string"},
         "ambient_light_measurement_method": {"$ref": "#/$defs/nonempty_string"},
         "night_mode_disabled": {"const": true}
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"luminance_cd_m2": {"type": "null"}},
+            "required": ["luminance_cd_m2"]
+          },
+          "then": {
+            "properties": {
+              "luminance_measurement_method": {
+                "const": "not_measured_no_luminance_meter"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "colorimetry_policy": {"const": "measured-display-colorimetry"}
+            },
+            "required": ["colorimetry_policy"]
+          },
+          "then": {
+            "properties": {
+              "luminance_cd_m2": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        }
+      ]
     },
     "line": {
       "type": "object",

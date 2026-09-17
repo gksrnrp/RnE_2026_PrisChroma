@@ -268,6 +268,7 @@ def assert_schedule_config(config: Mapping[str, Any]) -> None:
         "config_version",
         "display.model",
         "display.color_profile",
+        "display.colorimetry_policy",
         "display.calibration_id",
         "display.luminance_measurement_method",
         "display.width_measurement_method",
@@ -310,7 +311,7 @@ def assert_schedule_config(config: Mapping[str, Any]) -> None:
         "display.os_scale_percent",
         "display.app_scale_percent",
         "display.viewing_distance_mm",
-        "display.luminance_cd_m2",
+        "display.brightness_percent",
         "line.length_px",
         "coordinates.center_spacing_px",
         "timing.fixation_ms",
@@ -327,6 +328,34 @@ def assert_schedule_config(config: Mapping[str, Any]) -> None:
                 raise CollectionBlockedError(f"{path}는 0 이상의 정수여야 합니다.")
         else:
             _positive_number(value, path)
+
+    brightness_percent = float(_value_at(config, "display.brightness_percent"))
+    if brightness_percent > 100.0:
+        raise CollectionBlockedError("display.brightness_percent는 100 이하여야 합니다.")
+
+    colorimetry_policy = _value_at(config, "display.colorimetry_policy")
+    if colorimetry_policy not in {
+        "measured-display-colorimetry",
+        "nominal-srgb-device-specific",
+    }:
+        raise CollectionBlockedError(
+            "display.colorimetry_policy는 measured-display-colorimetry 또는 "
+            "nominal-srgb-device-specific이어야 합니다."
+        )
+    luminance = _value_at(config, "display.luminance_cd_m2")
+    luminance_method = _value_at(config, "display.luminance_measurement_method")
+    if luminance is None:
+        if colorimetry_policy != "nominal-srgb-device-specific":
+            raise CollectionBlockedError(
+                "휘도 미측정은 nominal-srgb-device-specific 정책에서만 허용합니다."
+            )
+        if luminance_method != "not_measured_no_luminance_meter":
+            raise CollectionBlockedError(
+                "휘도 미측정이면 display.luminance_measurement_method를 "
+                "not_measured_no_luminance_meter로 기록해야 합니다."
+            )
+    else:
+        _positive_number(luminance, "display.luminance_cd_m2")
 
     _rgb(_require_concrete(config, "display.background_rgb"), "display.background_rgb")
     if _value_at(config, "display.night_mode_disabled") is not True:

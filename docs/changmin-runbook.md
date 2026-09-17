@@ -29,12 +29,13 @@
 |---|---|---|
 | 한정훈 | 익명 참가자 ID, CVD type, Machado severity와 출처 세션, 고정 lapse와 출처 세션 | 이름·학번·연락처와 분리되고 근거가 기록됨 |
 | 한정훈·지도교사 | 동의·철회·중단·보관 계획 | `privacy.approved=true`를 사실대로 쓸 수 있음 |
-| 정인교 | 모니터 발광영역 가로 mm와 측정법, 실제 해상도, OS·OS/앱 배율, 운영체제·Python/Tk, native Tk/Pillow 1:1 픽셀 확인, 관찰거리와 고정법, 계측 휘도와 측정법, 색관리·야간모드, 주변 조명과 기록법, 실제 raster 캡처 | 현장에서 직접 확인한 값이며 config와 세션 런타임에서 정확히 대조 가능 |
+| 정인교 | 모니터 발광영역 가로 mm와 측정법, 실제 해상도, OS·OS/앱 배율, 운영체제·Python/Tk, native Tk/Pillow 1:1 픽셀 확인, 관찰거리와 고정법, 밝기 %, 휘도 측정값 또는 명시적 미측정 정책, 색관리·야간모드, 주변 조명과 기록법, 실제 raster 캡처 | 현장에서 직접 확인한 값이며 config와 세션 런타임에서 정확히 대조 가능. 계측기 없이는 cd/m²를 추정해 채우지 않음 |
 | 공동 | 한 Lab 중점·방향, 배경, 선 길이·간격·cap, 노출/ITI, 교정 굵기 3개, held-out 후보 2개, 12수준, 연습 6~10회 | 사람 응답을 보기 전에 문서와 config에 고정 |
 
-자동 조회를 300 mm 화면·500 mm 거리라고 가정했을 때의 5/10/20 px와 7/14 px는
-후보일 뿐이다. 직접 측정값이 다르면 다시 계산한다. Szafir 측정 시각도 범위
-0.05~0.35도 밖인 굵기를 주 분석에 쓰지 않는다.
+현재 후보 장치 FX517ZC에서 보고된 342 mm 화면·500 mm 거리를 쓰면 교정
+4/8/16 px와 held-out 6/11 px가 모두 Szafir 측정 시각도 범위 0.05~0.35도
+안이다. 이는 관찰거리·1:1 픽셀 매핑을 현장에서 확인하기 전까지 후보이며,
+직접 측정값이 달라지면 다시 계산한다.
 
 고정 lapse는 독립 큰 패치 자료와 세션 ID로 근거를 남겨야 한다. 현재 분석
 파이프라인에는 lapse별 민감도 분석이 없으므로 출처 없는 임의값으로 대신하지
@@ -128,6 +129,12 @@ python experiment_runner.py --check-config ../data/experiment/private/experiment
 
 둘 중 하나라도 경고·차단이면 다음 단계로 가지 않는다. GUI를 켠 실제 PC에서
 해상도, 배율과 화면 치수도 config와 다시 같아야 한다.
+
+휘도계·색도계가 없으면 `display.colorimetry_policy`를
+`nominal-srgb-device-specific`, `luminance_cd_m2`를 `null`,
+`luminance_measurement_method`를 `not_measured_no_luminance_meter`로 고정한다.
+이 경우 밝기 퍼센트와 Windows ACM/ICC 상태를 세션마다 유지하고, 결과를 실제
+발광색의 절대 ΔE00나 다른 장치로 일반화하지 않는다.
 
 ## 6. 2단계 — 대표 recovery와 최종 config-bound recovery 구분
 
