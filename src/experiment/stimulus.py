@@ -21,6 +21,19 @@ CIELAB 공간에서 **사전에 정한 방향 u** 를 따라, 같은 중심색�
 ⚠️ 방향을 그 사람의 혼동축으로 잡으면 안 된다. 아무리 벌려도 시뮬 후 색차가
 0 근처에 머물러 C80 을 잴 수 없다. `max_reachable` 로 여유를 먼저 확인한다.
 
+같은 자극의 반복을 막는 법
+--------------------------
+고정자극법은 색차 수준이 8 개뿐이라, 그대로 두면 **색쌍도 8 가지만** 돌아간다.
+96 시행이면 똑같은 두 색이 12 번씩 나오고, 참가자는 색을 구별하는 대신 자극을
+외우게 된다.
+
+그래서 시행마다 중심색을 **방향 u 에 수직으로** 조금씩 흔든다. u 에 수직이므로
+두 색을 잇는 방향은 그대로고, 요청한 색차는 흔든 중심에서 다시 맞춘다.
+u 방향으로 흔들면 색차 자체가 달라지므로 그렇게 하면 안 된다.
+
+흔드는 폭은 작게 잡는다. 굵기 조건마다 무작위로 섞이므로 굵기 효과와 섞이지
+않는다.
+
 안티앨리어싱
 ------------
 쓰지 않는다. 3 px 선에서 가장자리를 부드럽게 하면 배경색이 섞여 선의 실제
@@ -91,6 +104,7 @@ class ColorAxis:
     center_lab: tuple = (55.0, 6.0, 14.0)
     direction_lab: tuple = (0.0, 1.0, 0.0)     # a* 축 (적록)
     name: str = "lab_a"
+    jitter: float = 6.0        # 중심색을 흔드는 최대 폭 (Lab 거리)
 
     def __post_init__(self):
         u = np.asarray(self.direction_lab, dtype=float)
@@ -99,20 +113,41 @@ class ColorAxis:
             raise ValueError("방향 벡터가 0 이다")
         self._u = u / n
 
-    def pair_at_lab_distance(self, d):
+    def basis(self):
+        """u 에 수직인 두 축. 중심색을 흔들 때 쓴다."""
+        seed = np.array([1.0, 0.0, 0.0])
+        if abs(float(self._u @ seed)) > 0.9:
+            seed = np.array([0.0, 1.0, 0.0])
+        v = seed - (seed @ self._u) * self._u
+        v /= np.linalg.norm(v)
+        w = np.cross(self._u, v)
+        return v, w / np.linalg.norm(w)
+
+    def sample_center(self, rng):
+        """u 에 수직인 평면에서 중심색을 조금 옮긴다. 색차는 바뀌지 않는다."""
+        if not self.jitter:
+            return np.asarray(self.center_lab, dtype=float)
+        v, w = self.basis()
+        ang = rng.random() * 2 * math.pi
+        rad = self.jitter * math.sqrt(rng.random())
+        return (np.asarray(self.center_lab, dtype=float)
+                + rad * (math.cos(ang) * v + math.sin(ang) * w))
+
+    def pair_at_lab_distance(self, d, center=None):
         """Lab 상 거리 d 만큼 벌린 두 색. 색역 밖이면 (None, None)."""
-        c0 = np.asarray(self.center_lab, dtype=float)
+        c0 = (np.asarray(self.center_lab, dtype=float) if center is None
+              else np.asarray(center, dtype=float))
         a = _lab_to_srgb(c0 - (d / 2.0) * self._u)
         b = _lab_to_srgb(c0 + (d / 2.0) * self._u)
         if a is None or b is None:
             return None, None
         return _round_rgb(a), _round_rgb(b)
 
-    def max_lab_distance(self, hi=200.0, steps=400):
+    def max_lab_distance(self, hi=200.0, steps=400, center=None):
         """색역 안에 남는 최대 d."""
         best = 0.0
         for d in np.linspace(0, hi, steps):
-            if self.pair_at_lab_distance(d)[0] is None:
+            if self.pair_at_lab_distance(d, center)[0] is None:
                 break
             best = float(d)
         return best
@@ -128,10 +163,11 @@ class ColorAxis:
             return 0.0
         return simulated_delta_e(a, b, cvd_type, severity)
 
-    def pair_for_simulated(self, x, cvd_type, severity, tol=0.02, iters=60):
+    def pair_for_simulated(self, x, cvd_type, severity, tol=0.02, iters=60,
+                           center=None):
         """시뮬 후 ΔE00 가 x 가 되는 색쌍. 도달 불가면 (None, None, 실제값)."""
-        lo, hi = 0.0, self.max_lab_distance()
-        top_a, top_b = self.pair_at_lab_distance(hi)
+        lo, hi = 0.0, self.max_lab_distance(center=center)
+        top_a, top_b = self.pair_at_lab_distance(hi, center)
         if top_a is None:
             return None, None, 0.0
         top = simulated_delta_e(top_a, top_b, cvd_type, severity)
@@ -139,7 +175,7 @@ class ColorAxis:
             return None, None, top          # 화면이 낼 수 있는 한계를 넘음
         for _ in range(iters):
             m = (lo + hi) / 2.0
-            a, b = self.pair_at_lab_distance(m)
+            a, b = self.pair_at_lab_distance(m, center)
             if a is None:
                 hi = m
                 continue
@@ -147,7 +183,7 @@ class ColorAxis:
                 lo = m
             else:
                 hi = m
-        a, b = self.pair_at_lab_distance((lo + hi) / 2.0)
+        a, b = self.pair_at_lab_distance((lo + hi) / 2.0, center)
         return a, b, simulated_delta_e(a, b, cvd_type, severity)
 
 
@@ -203,12 +239,14 @@ class Trial:
     odd_is_b: bool
     correct_position: int
     in_gamut: bool = True
+    center_lab: tuple = None
 
 
 def make_trial(level, stroke_px, axis, cvd_type, severity, rng,
               screen=None):
     """자극 하나. 색역 밖이면 in_gamut=False 로 표시하고 제외한다."""
-    a, b, got = axis.pair_for_simulated(level, cvd_type, severity)
+    center = axis.sample_center(rng)
+    a, b, got = axis.pair_for_simulated(level, cvd_type, severity, center=center)
     if a is None:
         return Trial(int(stroke_px), None, float(level), None, None,
                      0.0, float(got), False, 0, in_gamut=False)
@@ -225,6 +263,7 @@ def make_trial(level, stroke_px, axis, cvd_type, severity, rng,
         delta_e00_simulated=float(got),
         odd_is_b=bool(rng.random() < 0.5),
         correct_position=int(rng.integers(0, 4)),
+        center_lab=tuple(round(float(v), 3) for v in center),
     )
 
 

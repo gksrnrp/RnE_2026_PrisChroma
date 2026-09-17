@@ -234,6 +234,7 @@ class Runner:
             "severity_source": a.severity_source,
             # 아래는 조건 재현용. 핵심 지표 아님.
             "color_axis": self.axis.name,
+            "center_lab": list(trial.center_lab) if trial.center_lab else None,
             "level_requested": round(trial.level_requested, 4),
             "response_time_ms": round(rt, 1),
             "timestamp": datetime.now().isoformat(timespec="milliseconds"),
@@ -391,8 +392,9 @@ def build_parser():
     p.add_argument("--widths", default="3,7,16", help="교정 굵기 px")
     p.add_argument("--validation-width", type=int, default=5)
     p.add_argument("--staircase-id", default="S1")
-    p.add_argument("--staircase-trials", type=int, default=120,
-                   help="모의검증 결과 60 회로는 모델 구분이 안 된다")
+    p.add_argument("--staircase-trials", type=int, default=60,
+                   help="계획서 기본값. 다만 60x3 으로는 모델 구분이 어렵다. "
+                        "compare_models.plan_check 로 먼저 확인할 것")
 
     p.add_argument("--trials-per-width", type=int, default=96)
     p.add_argument("--n-levels", type=int, default=8)

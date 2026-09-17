@@ -41,6 +41,29 @@ def test_pair_is_symmetric_about_the_center():
     assert max(abs(m - c) for m, c in zip(mid, center)) < 4.0
 
 
+def test_jitter_moves_the_center_but_not_the_color_difference():
+    # 중심을 흔드는 방향은 u 에 수직이어야 한다. u 방향으로 흔들면 색차가
+    # 달라져서 자극 수준이 무너진다.
+    ax = ColorAxis((55, 6, 14), (0, 1, 0), "lab_a", jitter=6.0)
+    rng = np.random.default_rng(0)
+    c0 = np.array([55.0, 6.0, 14.0])
+    u = np.array([0.0, 1.0, 0.0])
+    moved = 0
+    for _ in range(200):
+        c = ax.sample_center(rng)
+        d = c - c0
+        assert abs(float(d @ u)) < 1e-9          # u 성분이 없어야 한다
+        assert np.linalg.norm(d) <= 6.0 + 1e-9   # 폭 안에 있어야 한다
+        moved += int(np.linalg.norm(d) > 0.5)
+    assert moved > 150
+
+
+def test_jitter_off_gives_the_fixed_center():
+    ax = ColorAxis((55, 6, 14), (0, 1, 0), "lab_a", jitter=0.0)
+    rng = np.random.default_rng(0)
+    assert np.allclose(ax.sample_center(rng), [55.0, 6.0, 14.0])
+
+
 def test_requested_level_is_met_within_quantization():
     ax = ColorAxis((55, 6, 14), (0, 1, 0), "lab_a")
     for want in (1.0, 2.0, 4.0, 6.0, 9.0):
@@ -254,16 +277,33 @@ def test_answer_position_is_not_predictable(tmp_path, headless):
     assert 0.13 < same < 0.40
 
 
-def test_the_same_pair_is_not_repeated_too_often(tmp_path, headless):
-    # 색이 몇 가지만 돌아가면 참가자가 자극을 외운다. 어느 색쌍도 자기 몫을
-    # 크게 넘기지 않아야 한다.
+def test_stimuli_are_not_repeated(tmp_path, headless):
+    # 색차 수준은 8 개뿐이지만, 중심색을 흔들어 색쌍은 매 시행 달라야 한다.
+    # 같은 두 색이 12 번씩 나오면 참가자가 자극을 외운다.
     a = _args(tmp_path, trials_per_width=96, n_levels=8, widths="7")
     Runner(a).run()
     rows = TrialLog(str(tmp_path / "t.jsonl")).rows
     pairs = [tuple(r["displayed_rgb_a"]) + tuple(r["displayed_rgb_b"])
              for r in rows]
-    assert len(set(pairs)) == 8                   # 수준 수만큼
-    assert max(pairs.count(p) for p in set(pairs)) <= len(rows) / 8 + 1
+    assert len(set(pairs)) >= len(rows) * 0.9     # 거의 전부 다른 색쌍
+    assert max(pairs.count(p) for p in set(pairs)) <= 3
+
+
+def test_jitter_keeps_the_stimulus_level_on_target(tmp_path, headless):
+    # 흔들어도 실제 색차는 요청한 수준 근처에 있어야 한다. 크게 벗어나면
+    # 자극 수준 배치가 무너져 C80 추정이 나빠진다.
+    a = _args(tmp_path, trials_per_width=96, n_levels=8, widths="7")
+    Runner(a).run()
+    rows = TrialLog(str(tmp_path / "t.jsonl")).rows
+    err = np.array([abs(r["delta_e00_simulated"] - r["level_requested"])
+                    / r["level_requested"] for r in rows])
+    assert err.mean() < 0.12
+    assert err.max() < 0.35
+    # 수준별로 여전히 순서가 지켜져야 한다.
+    lv = sorted({r["level_requested"] for r in rows})
+    means = [np.mean([r["delta_e00_simulated"] for r in rows
+                      if r["level_requested"] == v]) for v in lv]
+    assert all(x < y for x, y in zip(means, means[1:]))
 
 
 def test_session_resumes_where_it_stopped(tmp_path, headless):
