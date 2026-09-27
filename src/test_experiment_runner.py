@@ -321,6 +321,26 @@ class BalancedScheduleTests(unittest.TestCase):
             {24, 48},
         )
         self.assertEqual(
+            Counter(
+                (
+                    row["session_block"],
+                    row["stroke_width_px"],
+                    row["correct_position"],
+                    row["odd_color"],
+                )
+                for row in schedule
+            ),
+            Counter(
+                {
+                    (block, width, position, odd): expected
+                    for block in range(1, 5)
+                    for width, expected in ((2, 3), (6, 6), (12, 3))
+                    for position in range(1, 5)
+                    for odd in ("a", "b")
+                }
+            ),
+        )
+        self.assertEqual(
             set(
                 Counter(
                     (
@@ -394,6 +414,26 @@ class BalancedScheduleTests(unittest.TestCase):
                     (block, width): expected
                     for block in range(1, 7)
                     for width, expected in ((2, 16), (6, 32), (12, 16))
+                }
+            ),
+        )
+        self.assertEqual(
+            Counter(
+                (
+                    row["session_block"],
+                    row["stroke_width_px"],
+                    row["correct_position"],
+                    row["odd_color"],
+                )
+                for row in schedule
+            ),
+            Counter(
+                {
+                    (block, width, position, odd): expected
+                    for block in range(1, 7)
+                    for width, expected in ((2, 2), (6, 4), (12, 2))
+                    for position in range(1, 5)
+                    for odd in ("a", "b")
                 }
             ),
         )

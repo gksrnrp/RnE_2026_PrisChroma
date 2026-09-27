@@ -962,9 +962,10 @@ def compile_stimulus_manifest(
             for row in rows
         )
         width_rows = list(_required(config, "calibration.widths"))
+        width_trial_counts = trial_counts_from_config(config)
         expected_repeats = {
             int(width_rows[index]["width_px"]): count // 96
-            for index, count in enumerate(trial_counts_from_config(config))
+            for index, count in enumerate(width_trial_counts)
         }
         if (
             len(combinations) != 288
@@ -1000,6 +1001,29 @@ def compile_stimulus_manifest(
         ):
             raise StimulusCompilationError(
                 "전체 schedule이 동결한 384시행 세션 블록 균형을 만족하지 않습니다."
+            )
+        block_factor_counts = Counter(
+            (
+                int(row["session_block"]),
+                int(row["stroke_width_px"]),
+                int(row["correct_position"]),
+                str(row["odd_color"]),
+            )
+            for row in rows
+        )
+        expected_block_factors = Counter(
+            {
+                (block, int(width_rows[index]["width_px"]), position, odd):
+                width_trial_counts[index] // (block_count * 8)
+                for block in range(1, block_count + 1)
+                for index in range(3)
+                for position in range(1, 5)
+                for odd in ("a", "b")
+            }
+        )
+        if block_factor_counts != expected_block_factors:
+            raise StimulusCompilationError(
+                "전체 schedule의 블록×굵기×정답위치×odd색 균형이 잘못됐습니다."
             )
 
     generated: dict[float, dict[str, Any]] = {}

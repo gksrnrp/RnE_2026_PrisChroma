@@ -205,9 +205,9 @@ def _full_calibration_schedule(config: dict, config_sha256: str) -> list[dict]:
             for repeat_index in range(repeats):
                 for combination_index, (position, odd) in enumerate(combinations):
                     block = (
-                        (level_index - 1) * 8
+                        (level_index - 1)
                         + combination_index
-                        + repeat_index * 3
+                        + repeat_index * 2
                     ) % 4 + 1
                     rows.append(
                         {
@@ -508,6 +508,27 @@ class PixelRendererTests(unittest.TestCase):
 
 
 class StimulusCompilerTests(unittest.TestCase):
+    def test_full_compile_rejects_session_factor_confounding(self) -> None:
+        config = renderer_config()
+        with tempfile.TemporaryDirectory() as folder:
+            config_sha256 = _write_json(Path(folder) / "config.json", config)
+            schedule = _full_calibration_schedule(config, config_sha256)
+            first = next(
+                row for row in schedule
+                if row["stroke_width_px"] == 2 and row["session_block"] == 1
+            )
+            second = next(
+                row for row in schedule
+                if row["stroke_width_px"] == 2 and row["session_block"] == 2
+                and (row["correct_position"], row["odd_color"])
+                != (first["correct_position"], first["odd_color"])
+            )
+            first["session_block"], second["session_block"] = (
+                second["session_block"], first["session_block"]
+            )
+            with self.assertRaisesRegex(StimulusCompilationError, "블록×굵기×정답위치×odd색"):
+                compile_stimulus_manifest(config, schedule)
+
     def test_full_compile_requires_all_twelve_configured_targets(self) -> None:
         with self.assertRaisesRegex(StimulusCompilationError, "12 target"):
             compile_stimulus_manifest(renderer_config(), [schedule_row(1, 1)])

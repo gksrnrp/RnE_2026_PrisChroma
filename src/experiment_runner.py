@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import threading
+from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -791,10 +792,14 @@ def build_balanced_schedule(
                 for combination_index, (correct_position, odd_color) in enumerate(
                     combinations
                 ):
+                    # Each position x odd-color combination must occur equally
+                    # often in every session, not merely in the pooled schedule.
+                    # The level rotates its destination through all blocks;
+                    # the second reference-width repeat goes to another block.
                     assignment_index = (
-                        (level_index - 1) * len(combinations)
+                        (level_index - 1)
                         + combination_index
-                        + repeat_index * 3
+                        + repeat_index * (block_count // 2)
                     )
                     session_block = assignment_index % block_count + 1
                     blocks[session_block].append(
@@ -846,6 +851,27 @@ def build_balanced_schedule(
         if observed_by_width != expected_by_width:
             raise CollectionBlockedError(
                 f"calibration block {session_block} 굵기별 균형이 잘못됐습니다."
+            )
+        observed_factors = Counter(
+            (
+                int(row["stroke_width_px"]),
+                int(row["correct_position"]),
+                str(row["odd_color"]),
+            )
+            for row in block
+        )
+        expected_factors = Counter(
+            {
+                (int(width["width_px"]), position, odd_color):
+                trials_by_width[width_index] // (block_count * 8)
+                for width_index, width in enumerate(widths)
+                for position in range(1, 5)
+                for odd_color in ("a", "b")
+            }
+        )
+        if observed_factors != expected_factors:
+            raise CollectionBlockedError(
+                f"calibration block {session_block} 위치×odd색 균형이 잘못됐습니다."
             )
         random.Random(seed + session_block * 1_000_003).shuffle(block)
         rows.extend(block)
