@@ -6,6 +6,7 @@ substantial undercoverage without demanding that every single CI contain truth.
 from __future__ import annotations
 
 import math
+from concurrent.futures import ProcessPoolExecutor
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -106,8 +107,29 @@ def run_repeated_coverage(*, simulate_trials: Callable, profiles: Sequence[Mappi
                           widths: Sequence[float], reference: float, trials: Sequence[int],
                           levels: Sequence[float], lapse: float, relative_scale: Callable,
                           seed: int, outer_replicates: int, bootstrap_replicates: int,
-                          progress: Callable | None = None) -> dict:
+                          progress: Callable | None = None, workers: int = 1) -> dict:
     """Fresh seed stream, equally rotated stress profiles; no accepted-seed search."""
+    if isinstance(workers,bool) or not isinstance(workers,int) or workers<1:
+        raise ValueError("workers must be a positive integer")
+    if workers > 1 and outer_replicates:
+        # Chunk starts are multiples of three, preserving profile and seed order.
+        # Workers change execution speed only, never the random streams or gates.
+        arguments=[]
+        for start in range(0,outer_replicates,6):
+            arguments.append((start,dict(simulate_trials=simulate_trials,profiles=profiles,
+                widths=widths,reference=reference,trials=trials,levels=levels,lapse=lapse,
+                relative_scale=relative_scale,seed=seed+11*start,
+                outer_replicates=min(6,outer_replicates-start),
+                bootstrap_replicates=bootstrap_replicates,workers=1)))
+        rows=[]
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            for chunk in executor.map(_coverage_chunk,arguments):
+                rows.extend(chunk)
+                if progress is not None:progress(len(rows),outer_replicates)
+        result=summarise_coverage(rows,bootstrap_replicates)
+        result.update(outer_records=rows,seed=seed,
+            seed_rule="data=seed+900000+11*i; bootstrap=seed+1900000+11*i")
+        return result
     rows = []
     for i in range(outer_replicates):
         profile = profiles[i % 3]
@@ -154,3 +176,10 @@ def run_repeated_coverage(*, simulate_trials: Callable, profiles: Sequence[Mappi
     result.update(outer_records=rows, seed=seed,
                   seed_rule="data=seed+900000+11*i; bootstrap=seed+1900000+11*i")
     return result
+
+
+def _coverage_chunk(argument):
+    start,kwargs=argument
+    rows=run_repeated_coverage(**kwargs)["outer_records"]
+    for row in rows:row["outer_index"]+=start
+    return rows

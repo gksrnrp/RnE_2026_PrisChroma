@@ -184,6 +184,10 @@
           "type": "array",
           "items": {"type": "number", "exclusiveMinimum": 0}
         },
+        "jackknife_c80_samples": {
+          "type": "array",
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        },
         "bootstrap_pairing_id": {
           "type": ["string", "null"],
           "minLength": 1
@@ -247,6 +251,7 @@
             "seed": {"type": "integer", "minimum": 0},
             "confidence": {"const": 0.95},
             "requested_replicates": {"type": "integer", "minimum": 2},
+              "interval_method": {"enum": ["percentile", "basic-log", "bca-log"]},
             "successful_replicates": {"type": "integer", "minimum": 0},
             "convergence_rate": {"type": "number", "minimum": 0, "maximum": 1},
             "converged": {"type": "boolean"},

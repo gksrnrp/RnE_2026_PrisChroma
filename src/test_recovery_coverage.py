@@ -18,6 +18,19 @@ def coverage_fixture(bootstrap_count=200):
 
 
 class RepeatedCoverageTests(unittest.TestCase):
+    def test_parallel_workers_preserve_serial_random_streams(self):
+        from parameter_recovery import simulate_trials,_szafir_scale,DEFAULT_FIXED_DELTA_E00_LEVELS
+        from recovery_coverage import run_repeated_coverage
+        args=dict(simulate_trials=simulate_trials,profiles=[
+            {'name':name,'c80_ref':2.,'w':.32} for name in PROFILES],
+            widths=(.06,.18,.30),reference=.18,trials=(12,24,12),
+            levels=DEFAULT_FIXED_DELTA_E00_LEVELS,lapse=.02,
+            relative_scale=_szafir_scale(),seed=1122,outer_replicates=3,
+            bootstrap_replicates=2)
+        serial=run_repeated_coverage(**args)
+        parallel=run_repeated_coverage(**args,workers=2)
+        self.assertEqual(serial,parallel)
+
     def test_complete_repeated_coverage_passes(self):
         self.assertTrue(validate_coverage_payload(coverage_fixture()))
 

@@ -57,6 +57,7 @@ from machado import simulate_color_float
 from psychometrics import (
     BootstrapResult,
     FitResult,
+    _bootstrap_interval,
     fit_b192,
     fit_b384,
     fit_c192,
@@ -975,6 +976,7 @@ def _bootstrap_payload(
     return {
         "seed": result.seed,
         "confidence": result.confidence,
+        "interval_method": result.interval_method,
         "requested_replicates": result.requested_replicates,
         "successful_replicates": result.successful_replicates,
         "convergence_rate": result.convergence_rate,
@@ -1035,11 +1037,17 @@ def _prediction_payload(
         ci_low: float | None = None
         ci_high: float | None = None
         bootstrap_samples: list[float] = []
+        jackknife_samples: list[float] = []
         if bootstrap.successful_replicates:
             ci_low, ci_high = bootstrap.c80_interval(width)
             bootstrap_samples = [
                 float(value) for value in _bootstrap_c80_samples(bootstrap, width)
             ]
+            if bootstrap.interval_method == "bca-log":
+                jackknife_samples = [float(value) for value in (
+                    np.asarray(bootstrap.jackknife_estimates["c80_ref"]) *
+                    (width/bootstrap.reference_width)**np.asarray(bootstrap.jackknife_estimates["beta"])
+                )]
         predictions.append(
             {
                 "stroke_width_px": int(candidate["rendered_width_px"]),
@@ -1048,6 +1056,7 @@ def _prediction_payload(
                 "ci_low": ci_low,
                 "ci_high": ci_high,
                 "bootstrap_c80_samples": bootstrap_samples,
+                "jackknife_c80_samples": jackknife_samples,
                 "bootstrap_pairing_id": pairing_id,
                 "value_type": "calibration_prediction",
                 "observed_held_out_used": False,
@@ -1451,10 +1460,20 @@ def validate_calibration_artifact(payload: Mapping[str, Any]) -> None:
             ):
                 raise AnalysisBlockedError(f"{model}: 예측 bootstrap 표본이 잘못됐습니다.")
             if samples and low is not None:
-                alpha = (1.0 - float(bootstrap["confidence"])) / 2.0
-                sample_low, sample_high = np.quantile(
-                    np.asarray(samples, dtype=float), (alpha, 1.0 - alpha)
-                )
+                method=bootstrap.get("interval_method","percentile")
+                jackknife=prediction.get("jackknife_c80_samples")
+                if method=="bca-log" and (
+                    not isinstance(jackknife,list) or len(jackknife)!=row["training_trial_count"]
+                    or any(isinstance(v,bool) or not isinstance(v,(int,float))
+                           or not math.isfinite(v) or v<=0 for v in jackknife)
+                ):
+                    raise AnalysisBlockedError(f"{model}: BCa jackknife 표본이 없거나 잘못됐습니다.")
+                try:
+                    sample_low,sample_high=_bootstrap_interval(
+                        samples,float(prediction["c80_sim"]),float(bootstrap["confidence"]),
+                        positive=True,method=method,jackknife=jackknife)
+                except ValueError as error:
+                    raise AnalysisBlockedError(f"{model}: CI 재계산 실패: {error}") from error
                 _require_close(
                     low, sample_low, f"{model}: 예측 bootstrap CI 하한 불일치"
                 )

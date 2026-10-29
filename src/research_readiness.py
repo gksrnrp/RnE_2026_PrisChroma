@@ -28,7 +28,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 
 from calibration_design import block_count_from_config
-from recovery_coverage import validate_coverage_payload
+from recovery_coverage import validate_coverage_payload, summarise_coverage, MODELS, PROFILES
 from implementation_provenance import (
     ImplementationProvenanceError,
     verify_implementation_hashes,
@@ -1343,14 +1343,15 @@ def _valid_parameter_recovery_integrity(
     *,
     simulation_replicates: int,
     bootstrap_replicates: int,
+    require_coverage_pass: bool = True,
 ) -> bool:
     """새 recovery artifact의 stress/coverage/paired gates를 다시 검사한다."""
     if (
         payload.get("artifact_type") != "synthetic_parameter_recovery"
         or payload.get("data_origin") != "synthetic"
         or payload.get("research_conclusion_allowed") is not False
-        or payload.get("passed") is not True
-        or payload.get("reasons") != []
+        or (require_coverage_pass and payload.get("passed") is not True)
+        or (require_coverage_pass and payload.get("reasons") != [])
     ):
         return False
     integrity = payload.get("recovery_integrity")
@@ -1362,6 +1363,13 @@ def _valid_parameter_recovery_integrity(
         "repeated_coverage_passed",
         "passed",
     }
+    if not require_coverage_pass:
+        required_integrity -= {"repeated_coverage_passed", "passed"}
+        reasons=payload.get("reasons")
+        if (payload.get("passed") is not False or not isinstance(reasons,list)
+                or not reasons or any(not isinstance(r,str) or not r.endswith(
+                    ": repeated coverage guard failed") for r in reasons)):
+            return False
     if not isinstance(integrity, dict) or any(
         integrity.get(key) is not True for key in required_integrity
     ):
@@ -1444,7 +1452,51 @@ def _valid_parameter_recovery_integrity(
         or any(value is not True for value in checks.values())
     ):
         return False
-    return validate_coverage_payload(payload.get("repeated_coverage"))
+    coverage=payload.get("repeated_coverage")
+    if require_coverage_pass:
+        return validate_coverage_payload(coverage)
+    if not isinstance(coverage,dict):return False
+    rows=coverage.get("outer_records");count=coverage.get("bootstrap_per_outer")
+    if (not isinstance(rows,list) or len(rows)<60 or not isinstance(count,int)
+            or isinstance(count,bool) or count<200):return False
+    for i,row in enumerate(rows):
+        if (not isinstance(row,dict) or row.get("outer_index")!=i
+                or row.get("profile")!=PROFILES[i%3]
+                or not isinstance(row.get("models"),dict)
+                or set(row["models"])!=set(MODELS)):return False
+        for model,entry in row["models"].items():
+            keys={"c80","beta"} if model=="D384" else {"c80"}
+            if (not isinstance(entry,dict) or not isinstance(entry.get("fit_converged"),bool)
+                    or not isinstance(entry.get("bootstrap_successful"),int)
+                    or isinstance(entry.get("bootstrap_successful"),bool)
+                    or not 0<=entry["bootstrap_successful"]<=count
+                    or not isinstance(entry.get("covered"),dict)
+                    or set(entry["covered"])!=keys
+                    or any(not isinstance(v,bool) for v in entry["covered"].values())):return False
+    summary=summarise_coverage(rows,count)
+    return (summary["passed"] is False
+            and all(coverage.get(k)==v for k,v in summary.items())
+            and payload["reasons"]==summary["reasons"])
+
+
+def _collection_deviation_binding(root: Path, recovery_path: Path) -> str | None:
+    """Explicit local operator decision; never turns failed recovery into passed."""
+    record_path=root/"data/experiment/private/calibration-collection-deviation.json"
+    config=_canonical_experiment_config(root)
+    try:
+        record=_read_json(record_path)
+        if (config is None or not isinstance(record,dict)
+                or record.get("artifact_type")!="calibration_collection_deviation_v1"
+                or record.get("decision")!="collect_calibration_only_defer_inference"
+                or any(record.get(k) is not True for k in (
+                    "approved","required_consent_confirmed","technical_checks_not_waived"))
+                or not isinstance(record.get("recorded_at_utc"),str)
+                or not record["recorded_at_utc"].endswith("Z")
+                or record.get("source_recovery_sha256")!=_sha256(recovery_path)
+                or record.get("config_sha256")!=_sha256(config)):
+            return None
+        return record["config_sha256"]
+    except (OSError,ValueError,TypeError):return None
 
 
 def _check_parameter_recovery(root: Path) -> CheckResult:
@@ -1502,26 +1554,28 @@ def _check_parameter_recovery(root: Path) -> CheckResult:
         problems.append("동결된 1.0 experiment_config와 결합할 recovery 대상이 없음")
 
     passed_results: list[Path] = []
+    deferred_results: list[Path] = []
     matched_config_hashes: set[str] = set()
     for path in result_files:
         try:
             payload = _read_json(path)
         except (OSError, json.JSONDecodeError):
             continue
+        deviation_hash=_collection_deviation_binding(root,path)
         if (
             not isinstance(payload, dict)
             or _placeholder_paths(payload)
-            or not _explicit_recovery_pass(payload)
+            or (not _explicit_recovery_pass(payload) and deviation_hash is None)
         ):
             continue
         plan = payload.get("sampling_plan") if isinstance(payload, dict) else None
         if not isinstance(plan, dict):
             continue
-        if plan.get("must_rerun_with_frozen_human_config") is not False:
+        if plan.get("must_rerun_with_frozen_human_config") is not False and deviation_hash is None:
             continue
-        result_hash = payload.get("config_sha256")
+        result_hash = deviation_hash or payload.get("config_sha256")
         legacy_hash = payload.get("experiment_config_sha256")
-        if legacy_hash is not None and legacy_hash != result_hash:
+        if deviation_hash is None and legacy_hash is not None and legacy_hash != result_hash:
             continue
         result_levels = plan.get("delta_e00_levels")
         expected = config_bindings.get(result_hash)
@@ -1572,10 +1626,11 @@ def _check_parameter_recovery(root: Path) -> CheckResult:
             payload,
             simulation_replicates=result_simulations,
             bootstrap_replicates=result_bootstrap,
+            require_coverage_pass=deviation_hash is None,
         ):
             continue
         matched_config_hashes.add(result_hash)
-        passed_results.append(path)
+        (deferred_results if deviation_hash else passed_results).append(path)
     missing_bindings = sorted(set(config_bindings) - matched_config_hashes)
     if missing_bindings:
         problems.append(
@@ -1583,14 +1638,16 @@ def _check_parameter_recovery(root: Path) -> CheckResult:
             + ", ".join(value[:12] for value in missing_bindings)
         )
     evidence = [_relative(path, root) for path in implementations + result_files]
+    conditional=not problems and bool(deferred_results) and not passed_results
     return _check(
         "parameter_recovery",
         "가상 참가자 parameter recovery",
-        not problems,
+        not problems and not conditional,
         "parameter recovery 코드와 통과한 결과가 있습니다.",
-        "본 시행 전에 필요한 parameter recovery가 끝나지 않았습니다: " + "; ".join(problems),
+        ("신뢰구간 검증 미달을 기록하고 교정자료 수집만 승인했습니다. validation/확정 결론은 차단됩니다."
+         if conditional else "본 시행 전에 필요한 parameter recovery가 끝나지 않았습니다: " + "; ".join(problems)),
         evidence=evidence,
-        blocks_human_data=True,
+        blocks_human_data=not conditional,
         blocks_research_claims=True,
     )
 
@@ -1816,7 +1873,7 @@ def assess_research_readiness(
         for item in checks
         if item.status == "blocked" and item.blocks_human_data
     ]
-    validation_only_ids = {"validation_plan_ready", "validation_runtime_gates"}
+    validation_only_ids = {"validation_plan_ready", "validation_runtime_gates", "parameter_recovery"}
     validation_blocked = calibration_blocked + [
         item
         for item in checks

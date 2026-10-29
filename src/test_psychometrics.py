@@ -138,6 +138,52 @@ class MaximumLikelihoodModelTests(unittest.TestCase):
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_bca_symmetric_log_case_equals_percentile(self) -> None:
+        from psychometrics import _bootstrap_interval
+        draws=np.exp([-2.,-1.,0.,1.,2.])
+        actual=_bootstrap_interval(draws,1.,.95,positive=True,method="bca-log",
+            jackknife=np.exp([-1.,0.,1.]))
+        expected=np.exp(np.quantile(np.log(draws),[.025,.975]))
+        np.testing.assert_allclose(actual,expected)
+
+    def test_bca_fails_closed_without_identifiable_jackknife(self) -> None:
+        from psychometrics import _bootstrap_interval
+        for jackknife in (None,[1.,1.,1.],[1.,float('nan'),2.]):
+            with self.subTest(jackknife=jackknife),self.assertRaises(ValueError):
+                _bootstrap_interval([.5,1.,2.],1.,.95,positive=True,
+                    method="bca-log",jackknife=jackknife)
+
+    def test_basic_log_interval_uses_reverse_log_quantiles(self) -> None:
+        from psychometrics import _bootstrap_interval
+        draws=np.asarray([1.0,2.0,4.0,8.0,16.0])
+        actual=_bootstrap_interval(draws,4.0,.95,positive=True,method="basic-log")
+        expected=np.exp(2*math.log(4.0)-np.quantile(np.log(draws),[.975,.025]))
+        np.testing.assert_allclose(actual,expected)
+        self.assertGreater(actual[0],0)
+
+    def test_signed_beta_basic_interval_is_not_logged(self) -> None:
+        from psychometrics import _bootstrap_interval
+        draws=np.asarray([-1.2,-.8,-.4,0.0,.4])
+        actual=_bootstrap_interval(draws,-.5,.95,positive=False,method="basic-log")
+        expected=2*(-.5)-np.quantile(draws,[.975,.025])
+        np.testing.assert_allclose(actual,expected)
+
+    def test_basic_log_rejects_invalid_draws_and_method(self) -> None:
+        from psychometrics import _bootstrap_interval
+        for draws,method in (([0,1],"basic-log"),([1,float('nan')],"basic-log"),([],"basic-log"),([1,2],"invalid")):
+            with self.subTest(draws=draws,method=method),self.assertRaises(ValueError):
+                _bootstrap_interval(draws,1,.95,positive=True,method=method)
+
+    def test_d384_c80_interval_uses_width_specific_point_and_paired_draws(self) -> None:
+        from psychometrics import BootstrapResult,_bootstrap_interval
+        result=BootstrapResult(model="D384",seed=1,confidence=.95,requested_replicates=3,
+            successful_replicates=3,convergence_rate=1,converged=True,intervals={},
+            estimates={"c80_ref":(1.5,2.,2.5),"beta":(-.8,-.5,-.2)},reference_width=8.,
+            interval_method="basic-log",point_estimates={"c80_ref":2.,"beta":-.4})
+        draws=np.asarray([1.5,2.,2.5])*(4/8)**np.asarray([-.8,-.5,-.2])
+        expected=_bootstrap_interval(draws,2.*(4/8)**-.4,.95,positive=True,method="basic-log")
+        np.testing.assert_allclose(result.c80_interval(4.),expected)
+
     def test_parametric_bootstrap_is_reproducible_and_has_ci(self) -> None:
         x, answers, widths = deterministic_trials(
             lambda _width: 2.3, w=0.31, repeats=15

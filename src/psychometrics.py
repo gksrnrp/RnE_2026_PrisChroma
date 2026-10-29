@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from numbers import Real
 
 import numpy as np
+from scipy.special import ndtr, ndtri
 
 
 GUESS_RATE = 0.25
@@ -192,7 +193,7 @@ class FitResult:
 
 @dataclass(frozen=True)
 class BootstrapResult:
-    """모수적 부트스트랩 추정치, 백분위 CI, 수렴률."""
+    """모수적 부트스트랩 추정치, 명시된 방식의 CI, 수렴률."""
 
     model: str
     seed: int
@@ -205,9 +206,12 @@ class BootstrapResult:
     estimates: dict[str, tuple[float, ...]]
     reference_width: float | None = None
     relative_scale: RelativeScale | None = field(default=None, repr=False, compare=False)
+    interval_method: str = "percentile"
+    point_estimates: dict[str, float] = field(default_factory=dict)
+    jackknife_estimates: dict[str, tuple[float, ...]] = field(default_factory=dict)
 
     def c80_interval(self, stroke_width: Real) -> tuple[float, float]:
-        """저장된 bootstrap 복제에서 특정 굵기의 C80 백분위 CI를 구한다."""
+        """특정 굵기의 C80 CI. D384 basic-log는 양의 지지집합을 보존한다."""
         width = _finite_scalar(stroke_width, "stroke_width", positive=True)
         if not self.successful_replicates:
             raise ValueError("성공한 bootstrap 복제가 없어 C80 CI를 계산할 수 없습니다.")
@@ -228,9 +232,83 @@ class BootstrapResult:
             values = np.asarray(self.estimates["c80_ref"], dtype=float) * float(scale)
         else:
             raise RuntimeError(f"알 수 없는 모델입니다: {self.model}")
-        alpha = (1.0 - self.confidence) / 2.0
-        low, high = np.quantile(values, (alpha, 1.0 - alpha))
-        return float(low), float(high)
+        if self.interval_method in {"basic-log", "bca-log"}:
+            if not self.point_estimates:
+                raise ValueError("basic-log 구간에는 원 적합 추정치가 필요합니다.")
+            if self.model in {"B192", "B384"}:
+                point = self.point_estimates["c80"]
+            elif self.model == "D384":
+                point = self.point_estimates["c80_ref"] * (
+                    width / self.reference_width
+                ) ** self.point_estimates["beta"]
+            else:
+                point = self.point_estimates["c80_ref"] * float(scale)
+        else:
+            point = 1.0  # not used for percentile intervals
+        jackknife = None
+        if self.interval_method == "bca-log":
+            if self.model in {"B192", "B384"}:
+                jackknife = np.asarray(self.jackknife_estimates["c80"])
+            elif self.model == "D384":
+                jackknife = np.asarray(self.jackknife_estimates["c80_ref"]) * (
+                    width / self.reference_width
+                ) ** np.asarray(self.jackknife_estimates["beta"])
+            else:
+                jackknife = np.asarray(self.jackknife_estimates["c80_ref"]) * float(scale)
+        return _bootstrap_interval(values, point, self.confidence,
+                                   positive=True, method=self.interval_method,
+                                   jackknife=jackknife)
+
+
+def _bootstrap_interval(values, point, confidence, *, positive, method, jackknife=None):
+    """Percentile, reverse-bootstrap or BCa; log coordinates for positive values.
+
+    Basic interval: [2*t_hat-q_high(t*), 2*t_hat-q_low(t*)]. BCa uses empirical
+    median bias plus weighted delete-one acceleration. Neither uses the unknown
+    truth or is guaranteed to have nominal coverage in this finite design.
+    """
+    if method not in {"percentile", "basic-log", "bca-log"}:
+        raise ValueError("지원하지 않는 interval_method입니다.")
+    draws = np.asarray(values, dtype=float)
+    if draws.ndim != 1 or not draws.size or np.any(~np.isfinite(draws)):
+        raise ValueError("CI에는 유한한 bootstrap 복제값이 필요합니다.")
+    alpha = (1.0-float(confidence))/2.0
+    if method == "percentile":
+        low, high = np.quantile(draws, (alpha,1-alpha))
+    elif method == "bca-log":
+        jk=np.asarray(jackknife,dtype=float)
+        if jk.ndim!=1 or jk.size<3 or np.any(~np.isfinite(jk)):
+            raise ValueError("BCa에는 유한한 delete-one jackknife 추정치가 필요합니다.")
+        if positive:
+            if point<=0 or np.any(draws<=0) or np.any(jk<=0):
+                raise ValueError("BCa 로그 좌표에는 양의 추정치가 필요합니다.")
+            draws=np.log(draws);point=math.log(point);jk=np.log(jk)
+        influence=np.mean(jk)-jk
+        denominator=6*float(np.sum(influence**2))**1.5
+        if denominator==0:
+            raise ValueError("퇴화한 jackknife로 BCa 가속도를 식별할 수 없습니다.")
+        acceleration=float(np.sum(influence**3))/denominator
+        fraction=(np.sum(draws<point)+.5*np.sum(draws==point))/draws.size
+        # Finite-bootstrap continuity bound, not an acceptance-rule relaxation.
+        z0=float(ndtri(np.clip(fraction,.5/draws.size,1-.5/draws.size)))
+        z=z0+ndtri(np.asarray([alpha,1-alpha]))
+        divisor=1-acceleration*z
+        if np.any(divisor<=0):
+            raise ValueError("BCa 변환의 유효 구간을 벗어났습니다.")
+        quantiles=ndtr(z0+z/divisor)
+        if np.any(~np.isfinite(quantiles)) or quantiles[0]>=quantiles[1]:
+            raise ValueError("BCa 분위수를 식별하지 못했습니다.")
+        low,high=np.quantile(draws,quantiles)
+        if positive:low,high=np.exp([low,high])
+    elif positive:
+        if point <= 0 or np.any(draws <= 0):
+            raise ValueError("로그 구간에는 양의 추정치와 복제값이 필요합니다.")
+        low, high = np.exp(2*math.log(point)-np.quantile(np.log(draws),(1-alpha,alpha)))
+    else:
+        low, high = 2*point-np.quantile(draws,(1-alpha,alpha))
+    if not math.isfinite(float(low)) or not math.isfinite(float(high)):
+        raise ValueError("유한한 bootstrap 구간을 계산하지 못했습니다.")
+    return float(low), float(high)
 
 
 def _negative_log_likelihood(probability: np.ndarray, correct: np.ndarray) -> float:
@@ -554,8 +632,13 @@ def parametric_bootstrap(
     confidence: Real = 0.95,
     seed: int = 0,
     minimum_convergence_rate: Real = 0.80,
+    interval_method: str | None = None,
 ) -> BootstrapResult:
-    """적합 모델에서 반응을 재생성해 MLE의 백분위 CI를 구한다."""
+    """D384는 bca-log, 나머지는 percentile CI를 사용하는 고정 정책.
+
+    명시적 override는 개발 비교용이며 사람 분석기는 기본 정책을 쓴다.
+    복제값·점추정·신뢰수준·추측률·lapse와 적합 방법은 바꾸지 않는다.
+    """
     x, _, widths = _trial_arrays(delta_e00, correct, stroke_width)
     if isinstance(replicates, bool) or not isinstance(replicates, int):
         raise TypeError("replicates는 1 이상의 정수여야 합니다.")
@@ -571,6 +654,9 @@ def parametric_bootstrap(
         raise ValueError("minimum_convergence_rate는 0 이상 1 이하여야 합니다.")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed는 정수여야 합니다.")
+    method = interval_method or ("bca-log" if fit.model == "D384" else "percentile")
+    if method not in {"percentile", "basic-log", "bca-log"}:
+        raise ValueError("지원하지 않는 interval_method입니다.")
 
     probability = np.asarray(fit.probability(x, widths), dtype=float)
     generator = np.random.default_rng(seed)
@@ -586,12 +672,28 @@ def parametric_bootstrap(
             collected[key].append(float(value))
 
     successful = len(next(iter(collected.values()))) if collected else 0
+    jackknife={}
+    if successful and method=="bca-log":
+        # Identical (x,answer,width) deletions give identical fits. Fit each unique
+        # deletion once, then restore all N trial weights, not equal cell weights.
+        _,indices,inverse=np.unique(np.column_stack((x,np.asarray(correct),widths)),
+                                   axis=0,return_index=True,return_inverse=True)
+        unique_draws={key:[] for key in fit.parameters}
+        for index in indices:
+            keep=np.arange(x.size)!=index
+            refit=_refit_like(fit,x[keep],np.asarray(correct)[keep],widths[keep])
+            if not refit.converged or not math.isfinite(refit.negative_log_likelihood):
+                raise ValueError("BCa jackknife 적합 실패: 구간을 승인하지 않습니다.")
+            for key,value in refit.parameters.items():unique_draws[key].append(float(value))
+        jackknife={key:tuple(np.asarray(values)[inverse]) for key,values in unique_draws.items()}
     intervals: dict[str, tuple[float, float]] = {}
     if successful:
-        alpha = (1.0 - confidence_value) / 2.0
         for key, values in collected.items():
-            low, high = np.quantile(values, (alpha, 1.0 - alpha))
-            intervals[key] = (float(low), float(high))
+            intervals[key] = _bootstrap_interval(
+                values, fit.parameters[key], confidence_value,
+                positive=key != "beta", method=method,
+                jackknife=jackknife.get(key),
+            )
     rate = successful / replicates
     return BootstrapResult(
         model=fit.model,
@@ -605,6 +707,9 @@ def parametric_bootstrap(
         estimates={key: tuple(values) for key, values in collected.items()},
         reference_width=fit.reference_width,
         relative_scale=fit.relative_scale,
+        interval_method=method,
+        point_estimates=dict(fit.parameters),
+        jackknife_estimates=jackknife,
     )
 
 

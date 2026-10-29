@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import sys
+from functools import partial
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -97,15 +98,8 @@ def _szafir_scale(
 ) -> Callable[[float], float]:
     """기준 굵기에서 1이 되는 Szafir 상대 배율 함수를 만든다."""
 
-    def scale(width: float) -> float:
-        return szafir_relative_scale(
-            direction_lab,
-            probability,
-            width,
-            reference_width,
-        )
-
-    return scale
+    return partial(szafir_relative_scale, tuple(direction_lab), probability,
+                   reference_thickness_deg=reference_width)
 
 
 def _derive_recovery_profiles(
@@ -289,6 +283,7 @@ def _bootstrap_summary(
     return {
         "seed": result.seed,
         "confidence": result.confidence,
+        "interval_method": result.interval_method,
         "requested_replicates": result.requested_replicates,
         "successful_replicates": result.successful_replicates,
         "convergence_rate": result.convergence_rate,
@@ -856,6 +851,7 @@ def run_parameter_recovery(
     experiment_config_sha256: str | None = None,
     fixed_lapse: float = 0.02,
     coverage_replicates: int = 60,
+    coverage_workers: int = 1,
 ) -> dict:
     """상수·log-width·Szafir 생성 시나리오에서 알려진 모수를 회복한다.
 
@@ -884,6 +880,7 @@ def run_parameter_recovery(
         simulation_replicates, "simulation_replicates"
     )
     coverage_count = _positive_integer(coverage_replicates, "coverage_replicates")
+    worker_count = _positive_integer(coverage_workers, "coverage_workers")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed는 정수여야 합니다.")
     fixed_levels = tuple(float(value) for value in delta_e00_levels)
@@ -1108,6 +1105,7 @@ def run_parameter_recovery(
         relative_scale=scale, seed=seed,
         outer_replicates=coverage_count if full_run else 0,
         bootstrap_replicates=bootstrap_count,
+        workers=worker_count,
         progress=lambda done, total: print(
             f"Repeated coverage: {done}/{total}", file=sys.stderr, flush=True),
     )

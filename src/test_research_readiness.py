@@ -395,6 +395,47 @@ def _add_claim_evidence(root: Path, *, placeholder_source: bool = False) -> None
 
 
 class ResearchReadinessTests(unittest.TestCase):
+    def test_explicit_deviation_allows_collection_but_not_validation_or_claims(self):
+        from recovery_coverage import summarise_coverage
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            _make_human_ready_scaffold(root)
+            recovery_path=root/'results/parameter_recovery.json'
+            recovery=json.loads(recovery_path.read_text(encoding='utf-8'))
+            rows=recovery['repeated_coverage']['outer_records']
+            for row in rows[:7]:
+                for model in ('B192','C192'):row['models'][model]['covered']['c80']=False
+            summary=summarise_coverage(rows,1000)
+            recovery['repeated_coverage'].update(summary)
+            recovery.update(passed=False,reasons=summary['reasons'],config_sha256=None,
+                experiment_config_sha256=None)
+            recovery['sampling_plan']['must_rerun_with_frozen_human_config']=True
+            recovery['recovery_integrity'].update(repeated_coverage_passed=False,passed=False)
+            _write_json(recovery_path,recovery)
+            with patch('research_readiness._git_state',_clean_git_state),patch(
+                    'research_readiness._runtime_collection_gate',_ready_runtime_gate):
+                self.assertFalse(assess_research_readiness(root)['ready_for_calibration_collection'])
+            config=root/'data/experiment/experiment_config.json'
+            record={'artifact_type':'calibration_collection_deviation_v1',
+                'decision':'collect_calibration_only_defer_inference','approved':True,
+                'required_consent_confirmed':True,'technical_checks_not_waived':True,
+                'recorded_at_utc':'2026-10-29T07:00:00Z',
+                'source_recovery_sha256':_hash(recovery_path),'config_sha256':_hash(config)}
+            record_path=root/'data/experiment/private/calibration-collection-deviation.json'
+            _write_json(record_path,record)
+            with patch('research_readiness._git_state',_clean_git_state),patch(
+                    'research_readiness._runtime_collection_gate',_ready_runtime_gate):
+                report=assess_research_readiness(root)
+            self.assertTrue(report['ready_for_calibration_collection'])
+            self.assertFalse(report['ready_for_validation_collection'])
+            self.assertFalse(report['ready_for_research_claims'])
+            self.assertFalse(json.loads(recovery_path.read_text())['passed'])
+            record['source_recovery_sha256']='0'*64
+            _write_json(record_path,record)
+            with patch('research_readiness._git_state',_clean_git_state),patch(
+                    'research_readiness._runtime_collection_gate',_ready_runtime_gate):
+                self.assertFalse(assess_research_readiness(root)['ready_for_calibration_collection'])
+
     def test_empty_or_draft_repository_is_strictly_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
