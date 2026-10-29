@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import math
+import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -19,6 +20,7 @@ import numpy as np
 from experiment_design import szafir_relative_scale
 from implementation_provenance import implementation_hashes
 from calibration_design import CALIBRATION_WIDTH_TRIAL_COUNTS
+from recovery_coverage import run_repeated_coverage, validate_coverage_payload
 from psychometrics import (
     BootstrapResult,
     FitResult,
@@ -740,11 +742,12 @@ def _bootstrap_diagnostic(
     return {
         **summary,
         "truth_coverage": {
+            "diagnostic_only": True,
             "c80_by_width": c80_coverage,
             "required_parameters": parameter_coverage,
             "all_required_truth_covered": coverage_passed,
         },
-        "passed": convergence_passed and coverage_passed,
+        "passed": convergence_passed,
     }
 
 
@@ -795,11 +798,12 @@ def _paired_reference_integrity(
 def _assess_recovery(
     monte_carlo: dict,
     representative_bootstrap: dict,
+    repeated_coverage: dict,
     *,
     simulation_replicates: int,
     bootstrap_replicates: int,
 ) -> tuple[bool, list[str], dict]:
-    """횟수·stress profile·대표 CI를 모두 AND로 묶어 fail-closed 판정한다."""
+    """횟수·stress profile·반복 coverage·paired 수렴을 fail-closed 검사한다."""
     reasons: list[str] = []
     enough_simulations = (
         simulation_replicates
@@ -824,11 +828,15 @@ def _assess_recovery(
         reasons.extend(profile_gate.get("reasons", ["stress profile gate 실패"]))
     if representative_bootstrap.get("passed") is not True:
         reasons.extend(representative_bootstrap.get("reasons", ["대표 bootstrap gate 실패"]))
+    coverage_passed = validate_coverage_payload(repeated_coverage)
+    if not coverage_passed:
+        reasons.extend(repeated_coverage.get("reasons") or ["반복 coverage 무결성 실패"])
     integrity = {
         "minimum_simulation_replicates_met": enough_simulations,
         "minimum_bootstrap_replicates_met": enough_bootstraps,
         "all_profile_gates_passed": profile_gate.get("passed") is True,
         "representative_bootstrap_passed": representative_bootstrap.get("passed") is True,
+        "repeated_coverage_passed": coverage_passed,
     }
     integrity["passed"] = all(integrity.values())
     return not reasons and integrity["passed"], reasons, integrity
@@ -847,6 +855,7 @@ def run_parameter_recovery(
     source_probability_coordinate: float = DEFAULT_SZAFIR_PROBABILITY,
     experiment_config_sha256: str | None = None,
     fixed_lapse: float = 0.02,
+    coverage_replicates: int = 60,
 ) -> dict:
     """상수·log-width·Szafir 생성 시나리오에서 알려진 모수를 회복한다.
 
@@ -874,6 +883,7 @@ def run_parameter_recovery(
     simulation_count = _positive_integer(
         simulation_replicates, "simulation_replicates"
     )
+    coverage_count = _positive_integer(coverage_replicates, "coverage_replicates")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed는 정수여야 합니다.")
     fixed_levels = tuple(float(value) for value in delta_e00_levels)
@@ -1046,9 +1056,7 @@ def run_parameter_recovery(
         direction_lab=direction,
         probability=probability,
     )
-    # 대표 bootstrap의 coverage gate는 직접 적합되는 기준 C80(그리고 D의
-    # beta)에 적용한다. 다른 굵기의 C80은 이 모수들의 결정론적 변환이므로
-    # 개별 백분위 구간까지 동시에 진실값을 감싸라고 요구하지 않는다.
+    # 한 대표 CI의 참값 포함은 진단값이다. 반복 표본의 coverage를 별도 판정한다.
     reference_truth = {reference: central_c80}
     representative_models = {
         "B192": _bootstrap_diagnostic(
@@ -1080,7 +1088,7 @@ def run_parameter_recovery(
         reference_width=reference,
     )
     bootstrap_reasons = [
-        f"{model}: 대표 bootstrap 수렴 또는 진실값 CI 포함 실패"
+        f"{model}: 대표 bootstrap 수렴 실패"
         for model, diagnostic in representative_models.items()
         if diagnostic["passed"] is not True
     ]
@@ -1092,9 +1100,21 @@ def run_parameter_recovery(
         "passed": not bootstrap_reasons,
         "reasons": bootstrap_reasons,
     }
+    # Short smoke runs remain unapproved and do not spend 36,000 bootstrap fits.
+    full_run = simulation_count >= 200 and bootstrap_count >= 200
+    repeated_coverage = run_repeated_coverage(
+        simulate_trials=simulate_trials, profiles=derived_profiles, widths=widths,
+        reference=reference, trials=trials, levels=fixed_levels, lapse=lapse,
+        relative_scale=scale, seed=seed,
+        outer_replicates=coverage_count if full_run else 0,
+        bootstrap_replicates=bootstrap_count,
+        progress=lambda done, total: print(
+            f"Repeated coverage: {done}/{total}", file=sys.stderr, flush=True),
+    )
     passed, reasons, recovery_integrity = _assess_recovery(
         monte_carlo,
         representative_bootstrap,
+        repeated_coverage,
         simulation_replicates=simulation_count,
         bootstrap_replicates=bootstrap_count,
     )
@@ -1147,6 +1167,7 @@ def run_parameter_recovery(
         "recovery_integrity": recovery_integrity,
         "monte_carlo": monte_carlo,
         "representative_bootstrap": representative_bootstrap,
+        "repeated_coverage": repeated_coverage,
         "constant_scenario": {
             "truth": constant_truth,
             "fits": {

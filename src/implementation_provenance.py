@@ -61,6 +61,7 @@ VALIDATION_RECOVERY_FILES = (
 
 PARAMETER_RECOVERY_FILES = tuple(sorted(set(CALIBRATION_ANALYSIS_FILES) | {
     "src/parameter_recovery.py",
+    "src/recovery_coverage.py",
 }))
 
 PATH_CORRECTION_ANALYSIS_FILES = tuple(sorted(

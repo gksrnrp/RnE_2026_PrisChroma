@@ -28,6 +28,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import SchemaError
 
 from calibration_design import block_count_from_config
+from recovery_coverage import validate_coverage_payload
 from implementation_provenance import (
     ImplementationProvenanceError,
     verify_implementation_hashes,
@@ -1358,6 +1359,7 @@ def _valid_parameter_recovery_integrity(
         "minimum_bootstrap_replicates_met",
         "all_profile_gates_passed",
         "representative_bootstrap_passed",
+        "repeated_coverage_passed",
         "passed",
     }
     if not isinstance(integrity, dict) or any(
@@ -1425,10 +1427,11 @@ def _valid_parameter_recovery_integrity(
             or not isinstance(diagnostic.get("successful_replicates"), int)
             or diagnostic["successful_replicates"] < math.ceil(0.80 * bootstrap_replicates)
             or not isinstance(coverage, dict)
-            or coverage.get("all_required_truth_covered") is not True
+            or coverage.get("diagnostic_only") is not True
+            or not isinstance(coverage.get("all_required_truth_covered"), bool)
             or not isinstance(required, dict)
             or set(required) != expected_parameters
-            or any(value is not True for value in required.values())
+            or any(not isinstance(value, bool) for value in required.values())
         ):
             return False
     paired = representative.get("paired_reference_integrity")
@@ -1441,7 +1444,7 @@ def _valid_parameter_recovery_integrity(
         or any(value is not True for value in checks.values())
     ):
         return False
-    return True
+    return validate_coverage_payload(payload.get("repeated_coverage"))
 
 
 def _check_parameter_recovery(root: Path) -> CheckResult:

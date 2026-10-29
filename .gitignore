@@ -21,6 +21,8 @@ desktop.ini
 .idea/
 
 # 임시 결과물
+/output/
+/tmp/
 results/*
 !results/.gitkeep
 !results/conditions.md

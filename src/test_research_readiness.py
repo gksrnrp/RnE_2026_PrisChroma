@@ -123,6 +123,7 @@ def _make_human_ready_scaffold(root: Path) -> None:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes((source_root / relative).read_bytes())
+    from test_recovery_coverage import coverage_fixture
     config_hash = _hash(config_path)
     widths_deg = [row["width_deg"] for row in config["calibration"]["widths"]]
     recovery_hashes = implementation_hashes("parameter_recovery", project_root=root)
@@ -151,6 +152,7 @@ def _make_human_ready_scaffold(root: Path) -> None:
                 "minimum_bootstrap_replicates_met": True,
                 "all_profile_gates_passed": True,
                 "representative_bootstrap_passed": True,
+                "repeated_coverage_passed": True,
                 "passed": True,
             },
             "monte_carlo": {
@@ -178,6 +180,7 @@ def _make_human_ready_scaffold(root: Path) -> None:
                     "reasons": [],
                 },
             },
+            "repeated_coverage": coverage_fixture(1000),
             "representative_bootstrap": {
                 "models": {
                     model: {
@@ -186,6 +189,7 @@ def _make_human_ready_scaffold(root: Path) -> None:
                         "requested_replicates": 1000,
                         "successful_replicates": 1000,
                         "truth_coverage": {
+                            "diagnostic_only": True,
                             "all_required_truth_covered": True,
                             "required_parameters": (
                                 {"c80_ref": True, "beta": True}

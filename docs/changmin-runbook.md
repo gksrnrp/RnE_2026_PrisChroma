@@ -159,8 +159,8 @@ python parameter_recovery.py --experiment-config ../data/experiment/private/expe
 ```
 
 동결 12수준에서 유도한 low/central/high profile 각각의 수렴률·중앙오차·90백분위
-오차, 대표 네 모형 bootstrap의 알려진 C80/beta CI 포함, 같은 192회를 쓰는
-B192/C192 paired-bootstrap 동일성을 모두 확인한다. simulation과 bootstrap이
+오차, 대표 네 모형 bootstrap 수렴, 별도 60개 반복 자료의 C80/beta coverage,
+같은 192회를 쓰는 B192/C192 paired-bootstrap 동일성을 모두 확인한다. simulation과 bootstrap이
 각각 200회 미만이면 수치가 좋아도 `passed=false`다. 실패하면 사람에게 보여주지
 말고 수준·시행 설계를 다시 검토한다.
 
@@ -383,6 +383,14 @@ config의 목표 허용오차는 자극 수준 생성 검사에만 쓰인다. �
 임의 색쌍용 보조 software baseline이며 이 주 분석을 대신하지 않는다.
 
 ## 15. 멈춰야 하는 경우
+
+2026-10-29 calibration recovery 변경: 대표 1개 95% CI의 참값 포함을 강제하지
+않고 `recovery_coverage.py`의 사전 고정 반복 coverage 게이트를 추가했다.
+정식 `parameter_recovery.py --experiment-config ... --simulation-replicates 200
+--bootstrap-replicates 200`은 60개 합성 자료 × bootstrap 200회의 반복 coverage도
+자동 실행한다. 진행률은 stderr에 표시한다. 개발 후보의 성공은 승인/동결 config와
+결합한 성공이 아니므로 본실험 시작에 재사용하지 않는다. 상세 기준은 최상위
+protocol을 따른다. 사람 분석의 bootstrap 최소 1000회 규칙은 그대로다.
 
 | 상황 | 조치 |
 |---|---|
