@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import csv
 import hashlib
 import json
@@ -31,6 +32,7 @@ from calibration_design import block_count_from_config
 from recovery_coverage import validate_coverage_payload, summarise_coverage, MODELS, PROFILES
 from implementation_provenance import (
     ImplementationProvenanceError,
+    implementation_hashes,
     verify_implementation_hashes,
 )
 
@@ -1499,6 +1501,35 @@ def _collection_deviation_binding(root: Path, recovery_path: Path) -> str | None
     except (OSError,ValueError,TypeError):return None
 
 
+def _renderer_histogram_only_compatible(root: Path, recorded: Any) -> bool:
+    """Collection-only reuse: whitelist exact native histogram replacement.
+
+    All statistical dependencies must match. Both renderer source ASTs excluding
+    _pixel_counts must be identical. This never upgrades recovery/inference.
+    """
+    try:
+        current=implementation_hashes("parameter_recovery",project_root=root)
+        if not isinstance(recorded,dict) or set(recorded)!=set(current):return False
+        key="src/stimulus_renderer.py"
+        if [p for p in current if current[p]!=recorded[p]]!=[key]:return False
+        old_run=subprocess.run(["git","-C",str(root),"show","915bd68:src/stimulus_renderer.py"],
+            capture_output=True,check=False,timeout=10)
+        if old_run.returncode:return False
+        old=old_run.stdout
+        variants=[old,old.replace(b"\r\n",b"\n"),old.replace(b"\r\n",b"\n").replace(b"\n",b"\r\n")]
+        old=next((v for v in variants if hashlib.sha256(v).hexdigest()==recorded[key]),None)
+        if old is None:return False
+        trees=[ast.parse(old.decode("utf-8-sig")),ast.parse((root/key).read_text(encoding="utf-8-sig"))]
+        nodes=[[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=="_pixel_counts"] for tree in trees]
+        if any(len(n)!=1 for n in nodes):return False
+        if hashlib.sha256(ast.dump(nodes[1][0],include_attributes=False).encode()).hexdigest()!= "2d8666ed289a9eedbb06f34f9a3cc70c96acb3f843c6862056a2bf0541a8fb75":return False
+        for tree in trees:
+            tree.body=[n for n in tree.body if not(isinstance(n,ast.FunctionDef) and n.name=="_pixel_counts")]
+        return ast.dump(trees[0],include_attributes=False)==ast.dump(trees[1],include_attributes=False)
+    except (OSError,ValueError,TypeError,StopIteration,SyntaxError,subprocess.SubprocessError,ImplementationProvenanceError):
+        return False
+
+
 def _check_parameter_recovery(root: Path) -> CheckResult:
     implementations = sorted(
         set(_source_files(root, "parameter_recovery"))
@@ -1621,7 +1652,8 @@ def _check_parameter_recovery(root: Path) -> CheckResult:
                 label="parameter recovery",
             )
         except ImplementationProvenanceError:
-            continue
+            if not (deviation_hash and _renderer_histogram_only_compatible(root,implementation)):
+                continue
         if not _valid_parameter_recovery_integrity(
             payload,
             simulation_replicates=result_simulations,

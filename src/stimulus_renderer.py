@@ -447,9 +447,12 @@ def _image_from_spec(spec: Mapping[str, Any]) -> Image.Image:
 
 
 def _pixel_counts(image: Image.Image) -> list[dict[str, Any]]:
-    counts = Counter(tuple(pixel) for pixel in image.get_flattened_data())
+    counts = image.getcolors(maxcolors=image.width * image.height)
+    if counts is None:
+        _fail("RGB 픽셀 수를 정확히 집계하지 못했습니다.")
     return [
-        {"rgb": list(rgb), "count": count} for rgb, count in sorted(counts.items())
+        {"rgb": list(rgb), "count": count}
+        for count, rgb in sorted(counts, key=lambda item: item[1])
     ]
 
 
