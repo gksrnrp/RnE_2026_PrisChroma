@@ -826,3 +826,21 @@ RGB bytes 대조·해시·전체 픽셀 수 검사는 유지한다. 실제 4K �
 renderer Git 원문 hash, `_pixel_counts` 외 AST 동일성 및 새 함수의 정확한
 AST hash whitelist를 확인하는 좁은 호환 경로를 둔다. 다른 변경은 거부하고
 validation/추론 차단을 유지한다. 새 통계 검증을 했다고 기록하지 않는다.
+
+## 2026-11-05: 이관 PC의 Windows 빌드 차이에 대한 좁은 교정 수집 예외
+
+- 이관 뒤 FX517ZC + AOC 환경의 OS 식별자가 `Windows-11-10.0.26300-SP0`으로,
+  동결 config의 `26200`과 달라 교정 블록 2가 차단됐다. 사용자는 수정 허가를 받았다고
+  전했으며(팀 승인 원문은 저장소에 없음), 승인 내용은 비공개 기록에 남긴다.
+- config를 고치면 블록 1 응답·manifest·수집 예외와의 hash 결합이 끊기므로 고치지
+  않았다. `src/runtime_deviation.py`는 비공개 `runtime-os-deviation.json`이 config hash,
+  동결/관측 OS, 자극 commit, 실행 commit에 정확히 결합될 때만 OS 불일치를 허용한다.
+- 코드 commit이 바뀌면 manifest commit 검사도 걸리므로, 같은 조건에서만 manifest를
+  자극 commit과 대조한다. 실행 commit과의 차이는 `response_gui.py`,
+  `runtime_deviation.py`, 그 테스트, 이 문서로 제한한다. 자극·심리측정·스키마가
+  바뀌면 거부한다. 해상도·배율·Python/Tk·PNG·동의 검사는 면제하지 않는다.
+- 범위는 calibration뿐이다. 응답 행의 `git_commit`은 분석기 규칙대로 자극 commit을
+  유지하고, 실제 OS와 실행 commit은 세션마다
+  `runtime-os-deviation-log.jsonl`에 남긴다. 보고서에 이 편차를 적어야 한다.
+- 이 변경은 OS 빌드 차이가 응답에 영향이 없다는 증거가 아니다. 새 PC의 표시 검증과
+  recovery `passed=false`, validation·확정 추론 차단은 그대로다.

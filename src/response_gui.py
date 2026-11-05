@@ -43,6 +43,11 @@ from experiment_runner import (
     canonical_journal_path,
     expected_collection_session_id,
 )
+from runtime_deviation import (
+    RuntimeDeviationError,
+    append_session_log,
+    load_os_deviation,
+)
 from stimulus_renderer import (
     RENDERER_ID,
     RendererValidationError,
@@ -123,6 +128,7 @@ class CollectionPlan:
     trials: tuple[VerifiedTrial, ...]
     screen_metrics: ScreenMetrics
     git_state: GitState
+    runtime_deviation: Mapping[str, Any] | None = None
 
 
 def _sha256_bytes(raw: bytes) -> str:
@@ -236,12 +242,18 @@ def inspect_screen_metrics() -> ScreenMetrics:
 
 
 def validate_screen_metrics(
-    config: Mapping[str, Any], metrics: ScreenMetrics
+    config: Mapping[str, Any],
+    metrics: ScreenMetrics,
+    *,
+    approved_observed_os: str | None = None,
 ) -> None:
     display = config.get("display")
     if not isinstance(display, Mapping):
         raise ResponseGUIBlockedError("config.display가 없습니다.")
-    if metrics.operating_system != display.get("operating_system"):
+    if (
+        metrics.operating_system != display.get("operating_system")
+        and metrics.operating_system != approved_observed_os
+    ):
         raise ResponseGUIBlockedError(
             "운영체제 식별자가 동결 config와 다릅니다: "
             f"관측={metrics.operating_system!r}, 동결={display.get('operating_system')!r}"
@@ -703,8 +715,41 @@ def prepare_collection(
         raise ResponseGUIBlockedError("연구/개인정보 승인이 확인되지 않았습니다.")
 
     observed = screen_metrics or inspect_screen_metrics()
-    validate_screen_metrics(config, observed)
+    os_deviation: dict[str, Any] | None = None
+    # 주입된 시험 상태에는 적용하지 않는다. 실제 실행에서 OS가 다를 때만 기록을 본다.
+    if (
+        screen_metrics is None
+        and git_state is None
+        and observed.operating_system != config["display"].get("operating_system")
+    ):
+        head = inspect_git_state(root)
+        try:
+            os_deviation = load_os_deviation(
+                root,
+                phase=phase,
+                config_sha256=config_sha256,
+                frozen_operating_system=config["display"].get("operating_system"),
+                observed_operating_system=observed.operating_system,
+                head_commit=head.commit,
+            )
+        except RuntimeDeviationError as error:
+            raise ResponseGUIBlockedError(str(error)) from error
+    validate_screen_metrics(
+        config,
+        observed,
+        approved_observed_os=(
+            os_deviation["observed_operating_system"] if os_deviation else None
+        ),
+    )
     current_git = git_state or inspect_git_state(root)
+    if os_deviation is not None:
+        # 자극·시행표는 base_commit에서 만들어졌으므로 그 commit과 대조한다.
+        # 실제 실행 commit은 세션 로그와 승인 기록에 남는다.
+        current_git = GitState(
+            commit=os_deviation["base_commit"],
+            tracked_worktree_clean=current_git.tracked_worktree_clean,
+            required_runtime_files_tracked=current_git.required_runtime_files_tracked,
+        )
 
     manifest_file = Path(manifest_path).resolve()
     manifest, manifest_sha256 = _read_json_object(manifest_file, "compiled manifest")
@@ -841,6 +886,7 @@ def prepare_collection(
         trials=trials,
         screen_metrics=observed,
         git_state=current_git,
+        runtime_deviation=os_deviation,
     )
 
 
@@ -1649,6 +1695,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if plan
             else None
         ),
+        "runtime_os_deviation_applied": bool(plan and plan.runtime_deviation),
         "blockers": blockers,
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -1661,6 +1708,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     try:
         _assert_repository_stage_ready(args.phase, plan.repo_root)
+        if plan.runtime_deviation is not None:
+            append_session_log(
+                plan.repo_root,
+                plan.runtime_deviation,
+                session_id=args.session_id,
+                phase=args.phase,
+                session_block=args.session_block,
+            )
         return run_gui(plan, journal_path=args.journal, session_id=args.session_id)
     except (ResponseGUIBlockedError, JournalError, OSError) as error:
         print(f"자료 수집 차단: {error}", file=sys.stderr)
