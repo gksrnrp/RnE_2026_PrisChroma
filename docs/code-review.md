@@ -839,7 +839,8 @@ validation/추론 차단을 유지한다. 새 통계 검증을 했다고 기록�
   자극 commit과 대조한다. 실행 commit과의 차이는 `response_gui.py`,
   `runtime_deviation.py`, 그 테스트, 이 문서로 제한한다. 자극·심리측정·스키마가
   바뀌면 거부한다. 해상도·배율·Python/Tk·PNG·동의 검사는 면제하지 않는다.
-- 범위는 calibration뿐이다. 응답 행의 `git_commit`은 분석기 규칙대로 자극 commit을
+- 범위는 practice·calibration이다. practice는 교정 준비도 게이트가 함께 검증하기 때문이며
+  기존 연습을 다시 하지 않는다. validation은 제외한다. 응답 행의 `git_commit`은 분석기 규칙대로 자극 commit을
   유지하고, 실제 OS와 실행 commit은 세션마다
   `runtime-os-deviation-log.jsonl`에 남긴다. 보고서에 이 편차를 적어야 한다.
 - 이 변경은 OS 빌드 차이가 응답에 영향이 없다는 증거가 아니다. 새 PC의 표시 검증과

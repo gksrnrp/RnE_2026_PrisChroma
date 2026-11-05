@@ -20,7 +20,8 @@ from typing import Any
 RECORD_PATH = "data/experiment/private/runtime-os-deviation.json"
 LOG_PATH = "data/experiment/private/runtime-os-deviation-log.jsonl"
 ARTIFACT_TYPE = "runtime_os_build_deviation_v1"
-ALLOWED_PHASES = frozenset({"calibration"})
+# 교정 준비도 게이트가 연습 자극도 함께 검증하므로 practice를 포함한다.
+ALLOWED_PHASES = frozenset({"practice", "calibration"})
 # 자극·심리측정·스키마 파일이 바뀌면 이 예외로 실행할 수 없다.
 ALLOWED_CHANGED_FILES = frozenset(
     {

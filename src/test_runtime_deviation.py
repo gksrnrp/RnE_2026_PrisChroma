@@ -26,7 +26,7 @@ def record(**changes):
         "artifact_type": "runtime_os_build_deviation_v1",
         "approved": True,
         "approved_by": "tester",
-        "allowed_phases": ["calibration"],
+        "allowed_phases": ["practice", "calibration"],
         "config_sha256": "c" * 64,
         "frozen_operating_system": FROZEN,
         "observed_operating_system": OBSERVED,
@@ -73,8 +73,11 @@ class LoadOsDeviationTests(unittest.TestCase):
             with self.subTest(changes), self.assertRaises(RuntimeDeviationError):
                 self.load(record(**changes))
 
+    def test_practice_is_covered_for_the_calibration_gate(self):
+        self.assertIsNotNone(self.load(record(), phase="practice"))
+
     def test_validation_cannot_be_enabled_by_record(self):
-        payload = record(allowed_phases=["calibration", "validation"])
+        payload = record(allowed_phases=["practice", "calibration", "validation"])
         with self.assertRaises(RuntimeDeviationError):
             self.load(payload, phase="validation")
 
