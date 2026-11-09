@@ -28,7 +28,6 @@ BLOCK_SIZE = COLORS*len(WIDTHS)*LEVELS  # 48: every color x width x level once
 TOTAL = BLOCK_SIZE*REPEATS              # 384
 SEED = 20261111
 DATA_DIR = 'v5'
-REQUIRED_SCREEN = (3840, 2160)
 
 
 def build_plan(v3):
@@ -111,13 +110,6 @@ class App(pilot.App):
                    '화면 배율·거리·조명은 v3와 같게 유지하세요. 정답 피드백은 연습에서만 제공합니다.')
 
     def start(self):
-        # v3와 같은 1:1 4K 출력에서만 진행한다. 복제 모드 2560x1440이면 모니터가 확대해 선이 번진다.
-        screen = (self.root.winfo_screenwidth(), self.root.winfo_screenheight())
-        if screen != REQUIRED_SCREEN:
-            return self.messagebox.showerror(
-                '화면 해상도', f'현재 {screen[0]}x{screen[1]}입니다. Windows 디스플레이 설정에서 '
-                f'AOC 모니터를 {REQUIRED_SCREEN[0]}x{REQUIRED_SCREEN[1]}로 맞춘 뒤 다시 시작하세요.\n'
-                'Win+P에서 "두 번째 화면만"을 쓰면 안전합니다.')
         subject = self.subject.get().strip()
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,32}', subject):
             return self.messagebox.showerror('가명 코드', '영문·숫자·밑줄·하이픈 1~32자를 입력하세요.')
