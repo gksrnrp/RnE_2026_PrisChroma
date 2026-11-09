@@ -1604,7 +1604,8 @@ def _assert_repository_stage_ready(phase: str, repo_root: Path) -> None:
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=180,
+        # 7개 phase 산출물 전체를 재검증하면 약 170초가 걸려 180초 제한에 걸렸다.
+        timeout=900,
         check=False,
     )
     if completed.returncode != 0:
