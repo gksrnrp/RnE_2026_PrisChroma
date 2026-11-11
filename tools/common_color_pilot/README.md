@@ -33,6 +33,12 @@ python pilot.py --self-test
 | `validate_width_pilot.py --prepare` | 모델 스냅샷·6px 예측 사전 고정 | 비공개 예측 산출물 |
 | `validate_width_pilot.py` / `6px예측확인_시작.cmd` | v4: 새6px·120문항 | 비공개 v4 계획/스냅샷 |
 | `evaluate_validation_pilot.py` | 고정 예측과 새 응답 비교, 재적합 없음 | 비공개 v4 journal |
+| `wide_pilot.py` / `run_v5.py` | v5: 같은 색쌍을 8개 굵기에서 비교하는 384문항 | 비공개 v3 계획 |
+| `lum_pilot.py` | v6: 밝기 단서 세 조건을 비교하는 240문항 | 비공개 v3 계획과 명시한 모형 설정 |
+
+v5 실행은 [선 굵기 후속 실험](WIDE-PILOT.md), v6 실행은 [밝기 단서 실험](LUMINANCE-PILOT.md)을 참고한다.
+v6 공개본에는 참가자의 실제 severity가 들어 있지 않다. 준비 시 설정값과 출처를 직접 입력해야 한다.
+추가 도구 검사는 `python -m unittest -q test_public_package test_followup_pilots`로 실행한다.
 
 ## 데이터/버전 보존
 

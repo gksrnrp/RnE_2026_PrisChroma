@@ -12,7 +12,7 @@
 | `data/contracts/` | 입력 예제와 실험 설정 양식 |
 | `docs/experiment-protocol.md` | 실험 설계와 분석 기준 |
 | `docs/validation-workflow.md` | 별도 검증 시행과 결과 분석 절차 |
-| `tools/common_color_pilot/` | 본실험과 별도로 사용하는 공통색 예비실험 도구 |
+| `tools/common_color_pilot/` | 공통색·선 굵기·밝기 단서 예비실험 도구 |
 
 ## 실행
 
