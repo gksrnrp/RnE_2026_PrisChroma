@@ -1,0 +1,10 @@
+__pycache__/
+profiles/*
+!profiles/*.template.json
+results/
+data/
+captures/
+_synthetic-*/
+*.npy
+*.pt
+*.jsonl

@@ -9,5 +9,6 @@
 *.gif binary
 *.pdf binary
 *.xlsx binary
+*.npz binary
 *.hwp binary
 *.hwpx binary

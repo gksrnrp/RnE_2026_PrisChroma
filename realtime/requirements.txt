@@ -1,0 +1,7 @@
+numpy>=2.0
+scipy>=1.11
+pillow>=10.0
+opencv-python>=4.9   # Colab·서버에서는 opencv-python-headless로 바꿔도 됨
+matplotlib>=3.8
+# 학습 시 추가 설치: torch>=2.2
+# 화면 캡처 데모 시 추가 설치: mss>=9.0

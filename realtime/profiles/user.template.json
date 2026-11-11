@@ -1,0 +1,12 @@
+{
+  "participant_id": null,
+  "cvd_type": null,
+  "severity": null,
+  "c80_ref": null,
+  "s_ref_deg": null,
+  "beta": null,
+  "s_min_deg": null,
+  "s_max_deg": null,
+  "original_min": null,
+  "source": null
+}

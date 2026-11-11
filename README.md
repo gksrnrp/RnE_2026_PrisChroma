@@ -13,6 +13,7 @@
 | `docs/experiment-protocol.md` | 실험 설계와 분석 기준 |
 | `docs/validation-workflow.md` | 별도 검증 시행과 결과 분석 절차 |
 | `tools/common_color_pilot/` | 공통색·선 굵기·밝기 단서 예비실험 도구 |
+| `realtime/` | 학생 MLP·혼합색 처리·LUT를 이용한 실시간 보정 응용 |
 
 ## 실행
 
@@ -27,6 +28,7 @@ python two_color_demo.py --help
 
 패키지 버전을 고정하려면 `requirements.txt` 대신 `requirements-lock.txt`를 사용한다.
 예비실험 도구의 실행 방법은 [별도 안내](tools/common_color_pilot/README.md)에 있다.
+실시간 보정 모델과 합성 장면 평가 방법은 [실시간 보정 안내](realtime/README.md)에 있다.
 
 ## 연구 범위
 
