@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# 대용량 데이터 (100MB 넘는 파일은 GitHub에 못 올림)
+data/raw/
+*.csv.gz
+*.zip
+*.h5
+*.sqlite
+
+# OS / 편집기
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 임시 결과물
+/output/
+/tmp/
+results/*
+!results/.gitkeep
+!results/conditions.md
+!results/*.synthetic.json
+!results/*_sweep.csv
+!results/*_summary.md
+!results/maps/
+results/maps/*
+!results/maps/*_summary.md
+*.log
+
+# ②단계 측정 산출물 (정인교)
+# 합성 이미지와 측정 JSON은 코드로 다시 만들 수 있으므로 커밋하지 않는다.
+data/synthetic/
+results/measurements_*.json
+results/regions.csv
+results/pairs.csv
+results/failure_cases/
+
+# 참가자별 설정·자극·계획·원자료·파생 결과는 모두 로컬에 둔다.
+# 비식별 요약을 공개하려면 별도 파일명으로 검토 후 명시적으로 추가한다.
+data/experiment/
+data/inputs/personal_params.json
+data/inputs/thresholds.json
+data/inputs/*private*.json
+
+# 출처·라이선스·원본 hash를 확인하기 전의 실제 화면 이미지는 로컬 격리한다.
+data/real/images/*
+!data/real/images/.gitkeep
+data/samples/
+
+# 자격증명과 개인 환경 파일
+.env
+.env.*
+*.pem
+*.key
+*credentials*.json
+*secrets*.json

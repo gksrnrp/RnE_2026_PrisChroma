@@ -1,0 +1,119 @@
+{
+  "schema_version": "0.1-draft",
+  "config_version": "EXAMPLE_NOT_FOR_HUMAN_DATA",
+  "status": "draft",
+  "human_data_collection_allowed": false,
+  "task": {
+    "type": "4afc_odd_one_out",
+    "layout": "2x2",
+    "choice_count": 4,
+    "practice_feedback": true,
+    "main_feedback": false
+  },
+  "observer_profile": {
+    "participant_id": "P_SYNTHETIC_01",
+    "cvd_type": "deutan",
+    "severity": 0.7,
+    "severity_source": "SYNTHETIC_EXAMPLE_ONLY",
+    "severity_session_id": "SYNTHETIC_SEVERITY_SESSION",
+    "fixed_lapse": 0.02,
+    "lapse_source": "SYNTHETIC_EXAMPLE_ONLY",
+    "lapse_session_id": "SYNTHETIC_LAPSE_SESSION"
+  },
+  "display": {
+    "model": "EXAMPLE_DISPLAY",
+    "width_mm": 530.0,
+    "resolution_width_px": 1920,
+    "resolution_height_px": 1080,
+    "os_scale_percent": 100.0,
+    "app_scale_percent": 100.0,
+    "viewing_distance_mm": 600.0,
+    "background_rgb": [117, 117, 117],
+    "color_profile": "SYNTHETIC_EXAMPLE_ONLY",
+    "calibration_id": "SYNTHETIC_EXAMPLE_ONLY",
+    "luminance_cd_m2": null
+  },
+  "line": {
+    "length_px": 300,
+    "orientation_deg": 0.0,
+    "cap": "butt",
+    "antialiasing": "EXAMPLE_RENDERER_NOT_FROZEN",
+    "renderer": "EXAMPLE_RENDERER_NOT_FROZEN",
+    "pixel_snapping": "EXAMPLE_NOT_FROZEN"
+  },
+  "coordinates": {
+    "positions_px": [[500, 300], [800, 300], [500, 600], [800, 600]],
+    "center_spacing_px": 300
+  },
+  "color_design": {
+    "stimulus_family_id": "SYNTHETIC_EXAMPLE_FAMILY",
+    "midpoint_lab": [60.0, 0.0, 0.0],
+    "direction_lab": [0.0, 1.0, 0.0],
+    "symmetric_about_midpoint": true,
+    "gamut_policy": "reject",
+    "rgb_quantization": "nearest_8bit",
+    "target_absolute_tolerance_delta_e00": 0.05,
+    "target_relative_tolerance": 0.01,
+    "search_grid_steps": 64
+  },
+  "calibration": {
+    "widths": [
+      {"width_px": 2, "width_deg": 0.052720071179545365},
+      {"width_px": 6, "width_deg": 0.1581601242672588},
+      {"width_px": 12, "width_deg": 0.3163196459553995}
+    ],
+    "trials_per_width": [96, 192, 96],
+    "session_block_count": 4
+  },
+  "validation": {
+    "candidates": [
+      {
+        "geometric_target_px": 3.4641016151377544,
+        "rendered_width_px": 3,
+        "width_deg": 0.07908009979498572
+      },
+      {
+        "geometric_target_px": 8.48528137423857,
+        "rendered_width_px": 8,
+        "width_deg": 0.21088006153993671
+      }
+    ],
+    "independent_staircases": 3,
+    "trials_per_staircase": 60
+  },
+  "staircase": {
+    "method": "EXAMPLE_METHOD_NOT_FROZEN",
+    "starting_delta_e00": 5.0,
+    "minimum_delta_e00": 0.0,
+    "maximum_delta_e00": 20.0,
+    "update_rule": "EXAMPLE_RULE_NOT_FROZEN",
+    "lapse_policy": "fixed",
+    "fixed_lapse": 0.02
+  },
+  "sampling": {
+    "delta_e00_levels": [0.5, 0.7, 0.9, 1.2, 1.6, 2.1, 2.8, 3.7, 4.9, 6.5, 8.6, 13.86958417094678],
+    "randomization": "balanced-4-session-blocks-within-block-shuffle",
+    "practice_trials": null
+  },
+  "model_plan": {
+    "models": ["B192", "B384", "C192", "D384"],
+    "include_szafir_transfer": true,
+    "szafir_probability_coordinate": 0.5
+  },
+  "privacy": {
+    "approved": false,
+    "approval_id": null,
+    "approved_at_utc": null,
+    "consent_version": null,
+    "pseudonymization": null,
+    "storage_policy": null
+  },
+  "timing": {
+    "fixation_ms": null,
+    "inter_trial_ms": null,
+    "response_deadline_policy": null,
+    "response_deadline_ms": null,
+    "active_trial_abort_policy": "invalidate-analysis-no-retry",
+    "incomplete_block_time_limit_policy": "invalidate-participant-dataset-no-retry"
+  }
+}

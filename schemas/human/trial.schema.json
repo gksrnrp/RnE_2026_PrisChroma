@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "human/trial.schema.json",
+  "title": "Human 4AFC trial record",
+  "description": "One append-only raw human trial. Identifiers must be pseudonymous; direct personal identifiers are outside this contract and outside the repository.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_origin",
+    "config_version",
+    "config_sha256",
+    "stimulus_manifest_sha256",
+    "validation_plan_sha256",
+    "git_commit",
+    "stimulus_family_id",
+    "renderer_id",
+    "stimulus_png_sha256",
+    "stimulus_decoded_rgb_sha256",
+    "stimulus_pixel_metadata_path",
+    "participant_id",
+    "session_id",
+    "session_block",
+    "validation_block_id",
+    "trial_id",
+    "phase",
+    "trial_status",
+    "abort_reason",
+    "timestamp_utc",
+    "stimulus_onset_monotonic_ns",
+    "width_index",
+    "stroke_width_px",
+    "stroke_width_deg",
+    "delta_e00_level_index",
+    "validation_level_index",
+    "target_delta_e00_simulated",
+    "displayed_rgb_a",
+    "displayed_rgb_b",
+    "displayed_lab_a",
+    "displayed_lab_b",
+    "simulated_rgb_a",
+    "simulated_rgb_b",
+    "simulated_lab_a",
+    "simulated_lab_b",
+    "delta_e00_original",
+    "delta_e00_simulated",
+    "correct_position",
+    "position_colors",
+    "position_rgbs",
+    "odd_color",
+    "response_position",
+    "is_correct",
+    "response_time_ms",
+    "render_time_ms",
+    "cvd_type",
+    "machado_severity",
+    "severity_source",
+    "severity_session_id",
+    "fixed_lapse",
+    "lapse_source",
+    "lapse_session_id",
+    "random_seed"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "data_origin": {"const": "human"},
+    "config_version": {"$ref": "#/$defs/nonempty_string"},
+    "config_sha256": {"$ref": "#/$defs/sha256"},
+    "stimulus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "validation_plan_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "git_commit": {"$ref": "#/$defs/git_commit"},
+    "stimulus_family_id": {"$ref": "#/$defs/nonempty_string"},
+    "renderer_id": {"$ref": "#/$defs/nonempty_string"},
+    "stimulus_png_sha256": {"$ref": "#/$defs/sha256"},
+    "stimulus_decoded_rgb_sha256": {"$ref": "#/$defs/sha256"},
+    "stimulus_pixel_metadata_path": {"$ref": "#/$defs/repository_relative_path"},
+    "participant_id": {"$ref": "#/$defs/participant_id"},
+    "session_id": {"$ref": "#/$defs/nonempty_string"},
+    "session_block": {"type": ["integer", "null"], "minimum": 1, "maximum": 6},
+    "validation_block_id": {"type": ["string", "null"], "minLength": 1},
+    "trial_id": {"type": "integer", "minimum": 1},
+    "phase": {"enum": ["practice", "calibration", "validation"]},
+    "trial_status": {"enum": ["completed", "aborted"]},
+    "abort_reason": {"type": ["string", "null"], "minLength": 1},
+    "timestamp_utc": {"$ref": "#/$defs/utc_datetime"},
+    "stimulus_onset_monotonic_ns": {"type": "integer", "minimum": 0},
+    "width_index": {"type": ["integer", "null"], "minimum": 1, "maximum": 3},
+    "stroke_width_px": {"type": "integer", "minimum": 1},
+    "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+    "delta_e00_level_index": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 12
+    },
+    "validation_level_index": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 8
+    },
+    "target_delta_e00_simulated": {"type": "number", "exclusiveMinimum": 0},
+    "displayed_rgb_a": {"$ref": "#/$defs/rgb"},
+    "displayed_rgb_b": {"$ref": "#/$defs/rgb"},
+    "displayed_lab_a": {"$ref": "#/$defs/lab"},
+    "displayed_lab_b": {"$ref": "#/$defs/lab"},
+    "simulated_rgb_a": {"$ref": "#/$defs/rgb_number"},
+    "simulated_rgb_b": {"$ref": "#/$defs/rgb_number"},
+    "simulated_lab_a": {"$ref": "#/$defs/lab"},
+    "simulated_lab_b": {"$ref": "#/$defs/lab"},
+    "delta_e00_original": {"type": "number", "minimum": 0},
+    "delta_e00_simulated": {"type": "number", "minimum": 0},
+    "correct_position": {"type": "integer", "minimum": 1, "maximum": 4},
+    "position_colors": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"enum": ["a", "b"]}
+    },
+    "position_rgbs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/rgb"}
+    },
+    "odd_color": {"enum": ["a", "b"]},
+    "response_position": {"type": ["integer", "null"], "minimum": 1, "maximum": 4},
+    "is_correct": {"type": ["boolean", "null"]},
+    "response_time_ms": {"type": ["number", "null"], "minimum": 0},
+    "render_time_ms": {"type": "number", "minimum": 0},
+    "cvd_type": {"enum": ["protan", "deutan"]},
+    "machado_severity": {"type": "number", "minimum": 0, "maximum": 1},
+    "severity_source": {"$ref": "#/$defs/nonempty_string"},
+    "severity_session_id": {"$ref": "#/$defs/nonempty_string"},
+    "fixed_lapse": {"type": "number", "minimum": 0, "exclusiveMaximum": 0.2},
+    "lapse_source": {"$ref": "#/$defs/nonempty_string"},
+    "lapse_session_id": {"$ref": "#/$defs/nonempty_string"},
+    "random_seed": {"type": "integer", "minimum": 0}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"phase": {"const": "calibration"}},
+        "required": ["phase"]
+      },
+      "then": {
+        "properties": {
+          "width_index": {"type": "integer"},
+          "session_block": {"type": "integer"},
+          "validation_plan_sha256": {"type": "null"},
+          "delta_e00_level_index": {"type": "integer"},
+          "validation_level_index": {"type": "null"},
+          "validation_block_id": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"phase": {"const": "validation"}},
+        "required": ["phase"]
+      },
+      "then": {
+        "properties": {
+          "width_index": {"type": "null"},
+          "session_block": {"type": "null"},
+          "validation_plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "delta_e00_level_index": {"type": "null"},
+          "validation_level_index": {"type": "integer"},
+          "validation_block_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"trial_status": {"const": "completed"}},
+        "required": ["trial_status"]
+      },
+      "then": {
+        "properties": {
+          "abort_reason": {"type": "null"},
+          "response_position": {"type": "integer"},
+          "is_correct": {"type": "boolean"},
+          "response_time_ms": {"type": "number"}
+        }
+      },
+      "else": {
+        "properties": {
+          "abort_reason": {"type": "string", "minLength": 1},
+          "response_position": {"type": "null"},
+          "is_correct": {"type": "null"},
+          "response_time_ms": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonempty_string": {"type": "string", "minLength": 1},
+    "participant_id": {"type": "string", "pattern": "^P[0-9A-Za-z_-]+$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "repository_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![A-Za-z]:|/|.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "utc_datetime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "rgb": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"type": "integer", "minimum": 0, "maximum": 255},
+        {"type": "integer", "minimum": 0, "maximum": 255},
+        {"type": "integer", "minimum": 0, "maximum": 255}
+      ],
+      "items": false
+    },
+    "rgb_number": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"type": "number", "minimum": 0, "maximum": 255},
+        {"type": "number", "minimum": 0, "maximum": 255},
+        {"type": "number", "minimum": 0, "maximum": 255}
+      ],
+      "items": false
+    },
+    "lab": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"type": "number", "minimum": 0, "maximum": 100},
+        {"type": "number"},
+        {"type": "number"}
+      ],
+      "items": false
+    }
+  }
+}

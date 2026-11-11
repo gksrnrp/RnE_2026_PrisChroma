@@ -1,0 +1,644 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "human/participant_thresholds.schema.json",
+  "title": "Human participant C80 estimates and held-out validation",
+  "description": "Version 1.0 human threshold results. confirmed=false remains representable during review, but the research-readiness gate only accepts confirmed=true for claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_origin",
+    "coordinate",
+    "formula_version",
+    "config_version",
+    "config_sha256",
+    "git_commit",
+    "source_trials_sha256",
+    "source_validation_plan_sha256",
+    "source_stimulus_manifest_sha256",
+    "analysis_script_sha256",
+    "implementation_hashes",
+    "generated_at_utc",
+    "bootstrap_seed",
+    "participants"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "data_origin": {"const": "human"},
+    "coordinate": {"const": "post_machado_delta_e00"},
+    "formula_version": {"const": "direct-c80-4afc-v1"},
+    "config_version": {"$ref": "#/$defs/nonempty_string"},
+    "config_sha256": {"$ref": "#/$defs/sha256"},
+    "git_commit": {
+      "$ref": "#/$defs/git_commit",
+      "description": "Verified data-acquisition commit inherited from the frozen stimulus records; it need not equal a later analysis/report commit."
+    },
+    "source_trials_sha256": {"$ref": "#/$defs/sha256"},
+    "source_validation_plan_sha256": {"$ref": "#/$defs/sha256"},
+    "source_stimulus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "analysis_script_sha256": {"$ref": "#/$defs/sha256"},
+    "implementation_hashes": {"$ref": "#/$defs/implementation_hashes"},
+    "generated_at_utc": {"$ref": "#/$defs/utc_datetime"},
+    "bootstrap_seed": {"type": "integer", "minimum": 0},
+    "participants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/participant"}
+    }
+  },
+  "$defs": {
+    "implementation_hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^(requirements-lock\\.txt|schemas/.+\\.json|src/.+\\.py)$"
+      },
+      "additionalProperties": {"$ref": "#/$defs/sha256"}
+    },
+    "nonempty_string": {"type": "string", "minLength": 1},
+    "participant_id": {"type": "string", "pattern": "^P[0-9A-Za-z_-]+$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "utc_datetime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "calibration_width_slope_sensitivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion",
+        "shared_w_parameter_count",
+        "free_w_parameter_count",
+        "shared_w_aic",
+        "free_w_aic",
+        "delta_aic_free_minus_shared",
+        "shared_w_converged",
+        "free_w_converged",
+        "comparison_resolved",
+        "free_w_preferred",
+        "interpretation",
+        "d384_beta_interpretation_eligible",
+        "d384_beta_interpretation_reason",
+        "primary_c192_vs_b192_affected"
+      ],
+      "properties": {
+        "criterion": {"const": "AIC"},
+        "shared_w_parameter_count": {"const": 4},
+        "free_w_parameter_count": {"const": 6},
+        "shared_w_aic": {"type": "number"},
+        "free_w_aic": {"type": "number"},
+        "delta_aic_free_minus_shared": {"type": "number"},
+        "shared_w_converged": {"type": "boolean"},
+        "free_w_converged": {"type": "boolean"},
+        "comparison_resolved": {"type": "boolean"},
+        "free_w_preferred": {"type": "boolean"},
+        "interpretation": {
+          "enum": [
+            "shared_w_retained",
+            "free_w_lower_aic_warning_not_selected",
+            "unresolved_numerical_convergence"
+          ]
+        },
+        "d384_beta_interpretation_eligible": {"type": "boolean"},
+        "d384_beta_interpretation_reason": {
+          "enum": [
+            "shared_w_retained_and_d384_numerically_complete",
+            "shared_free_w_comparison_unresolved",
+            "free_w_lower_aic",
+            "d384_numerically_incomplete"
+          ]
+        },
+        "primary_c192_vs_b192_affected": {"const": false}
+      }
+    },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_id",
+        "cvd_type",
+        "severity",
+        "severity_source",
+        "severity_session_id",
+        "fixed_lapse",
+        "lapse_source",
+        "lapse_session_id",
+        "confirmed",
+        "confirmation_review",
+        "calibration_width_slope_sensitivity",
+        "predictions",
+        "validation",
+        "model_comparisons"
+      ],
+      "properties": {
+        "participant_id": {"$ref": "#/$defs/participant_id"},
+        "cvd_type": {"enum": ["protan", "deutan"]},
+        "severity": {"type": "number", "minimum": 0, "maximum": 1},
+        "severity_source": {"$ref": "#/$defs/nonempty_string"},
+        "severity_session_id": {"$ref": "#/$defs/nonempty_string"},
+        "fixed_lapse": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 0.2
+        },
+        "lapse_source": {"$ref": "#/$defs/nonempty_string"},
+        "lapse_session_id": {"$ref": "#/$defs/nonempty_string"},
+        "confirmed": {"type": "boolean"},
+        "confirmation_review": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/confirmation_review"}
+          ]
+        },
+        "calibration_width_slope_sensitivity": {
+          "$ref": "#/$defs/calibration_width_slope_sensitivity"
+        },
+        "predictions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/prediction"}
+        },
+        "validation": {"$ref": "#/$defs/validation"},
+        "model_comparisons": {"$ref": "#/$defs/model_comparisons"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"confirmed": {"const": true}},
+            "required": ["confirmed"]
+          },
+          "then": {
+            "properties": {
+              "confirmation_review": {"$ref": "#/$defs/confirmation_review"}
+            }
+          },
+          "else": {
+            "properties": {"confirmation_review": {"type": "null"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "validation": {
+                "properties": {"stable": {"const": false}},
+                "required": ["stable"]
+              }
+            },
+            "required": ["validation"]
+          },
+          "then": {
+            "properties": {
+              "model_comparisons": {
+                "properties": {
+                  "observed_pooled_c80": {"type": "null"},
+                  "observed_ci_low": {"type": "null"},
+                  "observed_ci_high": {"type": "null"},
+                  "observed_ci_half_width": {"type": "null"},
+                  "resolution_check": {"const": false},
+                  "primary_outcome": {
+                    "enum": ["validation_unstable", "numerical_incomplete"]
+                  },
+                  "primary_delta_loss": {
+                    "properties": {
+                      "point_estimate": {"type": "null"},
+                      "ci_low": {"type": "null"},
+                      "ci_high": {"type": "null"},
+                      "successful_combined_replicates": {"const": 0},
+                      "status": {"const": "unresolvable"},
+                      "reason": {"const": "validation_unstable"}
+                    }
+                  },
+                  "primary": {
+                    "properties": {
+                      "first_abs_error": {"type": "null"},
+                      "second_abs_error": {"type": "null"}
+                    }
+                  },
+                  "secondary": {
+                    "properties": {
+                      "first_abs_error": {"type": "null"},
+                      "second_abs_error": {"type": "null"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "confirmation_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_record_sha256",
+        "review_type",
+        "reviewer_id",
+        "reviewed_at_utc",
+        "review_note",
+        "approved_for_confirmation",
+        "participant_id",
+        "config_sha256",
+        "source_trials_sha256",
+        "validation_plan_sha256",
+        "validation_manifest_sha256"
+      ],
+      "properties": {
+        "review_record_sha256": {"$ref": "#/$defs/sha256"},
+        "review_type": {"const": "human_validation_confirmation"},
+        "reviewer_id": {
+          "type": "string",
+          "pattern": "^R[0-9A-Za-z_-]+$"
+        },
+        "reviewed_at_utc": {"$ref": "#/$defs/utc_datetime"},
+        "review_note": {"$ref": "#/$defs/nonempty_string"},
+        "approved_for_confirmation": {"const": true},
+        "participant_id": {"$ref": "#/$defs/participant_id"},
+        "config_sha256": {"$ref": "#/$defs/sha256"},
+        "source_trials_sha256": {"$ref": "#/$defs/sha256"},
+        "validation_plan_sha256": {"$ref": "#/$defs/sha256"},
+        "validation_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "stroke_width_px",
+        "stroke_width_deg",
+        "c80_sim",
+        "ci_low",
+        "ci_high",
+        "value_type",
+        "w",
+        "lapse",
+        "fit_trial_count",
+        "fit_converged",
+        "bootstrap_replicates",
+        "bootstrap_successful_replicates",
+        "bootstrap_convergence_rate",
+        "bootstrap_c80_samples",
+        "bootstrap_pairing_id"
+      ],
+      "properties": {
+        "model": {"enum": ["B192", "B384", "C192", "D384"]},
+        "stroke_width_px": {"type": "integer", "minimum": 1},
+        "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+        "c80_sim": {"type": "number", "exclusiveMinimum": 0},
+        "ci_low": {"type": "number", "exclusiveMinimum": 0},
+        "ci_high": {"type": "number", "exclusiveMinimum": 0},
+        "value_type": {"enum": ["measured", "predicted"]},
+        "w": {"type": "number", "exclusiveMinimum": 0},
+        "lapse": {"type": "number", "minimum": 0, "exclusiveMaximum": 0.2},
+        "fit_trial_count": {"type": "integer", "minimum": 1},
+        "fit_converged": {"type": "boolean"},
+        "bootstrap_replicates": {"type": "integer", "minimum": 1000},
+        "bootstrap_successful_replicates": {"type": "integer", "minimum": 0},
+        "bootstrap_convergence_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "bootstrap_c80_samples": {
+          "type": "array",
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        },
+        "bootstrap_pairing_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stroke_width_px",
+        "stroke_width_deg",
+        "blocks",
+        "coefficient_of_variation",
+        "intervals_compatible",
+        "range_bracketed",
+        "stable",
+        "pooled_c80",
+        "pooled_ci_low",
+        "pooled_ci_high"
+      ],
+      "properties": {
+        "stroke_width_px": {"type": "integer", "minimum": 1},
+        "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+        "blocks": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/validation_block"}
+        },
+        "coefficient_of_variation": {"type": "number", "minimum": 0},
+        "intervals_compatible": {"type": "boolean"},
+        "range_bracketed": {"type": "boolean"},
+        "stable": {"type": "boolean"},
+        "pooled_c80": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "pooled_ci_low": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "pooled_ci_high": {"type": ["number", "null"], "exclusiveMinimum": 0}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"stable": {"const": true}},
+            "required": ["stable"]
+          },
+          "then": {
+            "properties": {
+              "coefficient_of_variation": {"maximum": 0.2},
+              "intervals_compatible": {"const": true},
+              "range_bracketed": {"const": true},
+              "pooled_c80": {"type": "number"},
+              "pooled_ci_low": {"type": "number"},
+              "pooled_ci_high": {"type": "number"}
+            }
+          },
+          "else": {
+            "properties": {
+              "pooled_c80": {"type": "null"},
+              "pooled_ci_low": {"type": "null"},
+              "pooled_ci_high": {"type": "null"}
+            }
+          }
+        }
+      ]
+    },
+    "model_comparisons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stroke_width_px",
+        "stroke_width_deg",
+        "observed_pooled_c80",
+        "observed_ci_low",
+        "observed_ci_high",
+        "primary",
+        "secondary",
+        "prediction_separation",
+        "observed_ci_half_width",
+        "resolution_check",
+        "primary_outcome",
+        "primary_delta_loss",
+        "shared_w_sensitivity",
+        "metadata"
+      ],
+      "properties": {
+        "stroke_width_px": {"type": "integer", "minimum": 1},
+        "stroke_width_deg": {"type": "number", "exclusiveMinimum": 0},
+        "observed_pooled_c80": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "observed_ci_low": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "observed_ci_high": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "primary": {"$ref": "#/$defs/model_pair_comparison"},
+        "secondary": {"$ref": "#/$defs/model_pair_comparison"},
+        "prediction_separation": {"type": "number", "minimum": 0},
+        "observed_ci_half_width": {"type": ["number", "null"], "minimum": 0},
+        "resolution_check": {"type": "boolean"},
+        "primary_outcome": {
+          "enum": [
+            "C192_lower_error",
+            "B192_lower_error",
+            "equal_within_tolerance",
+            "model_indistinguishable",
+            "validation_unstable",
+            "numerical_incomplete",
+            "comparison_unresolvable"
+          ]
+        },
+        "primary_delta_loss": {"$ref": "#/$defs/delta_loss_inference"},
+        "shared_w_sensitivity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "shared_w_aic",
+            "free_w_aic",
+            "delta_aic_free_minus_shared",
+            "shared_w_converged",
+            "free_w_converged",
+            "comparison_resolved",
+            "free_w_preferred",
+            "interpretation"
+          ],
+          "properties": {
+            "shared_w_aic": {"type": "number"},
+            "free_w_aic": {"type": "number"},
+            "delta_aic_free_minus_shared": {"type": "number"},
+            "shared_w_converged": {"type": "boolean"},
+            "free_w_converged": {"type": "boolean"},
+            "comparison_resolved": {"type": "boolean"},
+            "free_w_preferred": {"type": "boolean"},
+            "interpretation": {
+              "enum": [
+                "shared_w_retained",
+                "free_w_lower_aic_warning_not_selected",
+                "unresolved_numerical_convergence"
+              ]
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "comparison_unit",
+            "resolution_rule",
+            "error_tie_tolerance_delta_e00",
+            "inference_scope",
+            "model_or_width_reselected_after_validation"
+          ],
+          "properties": {
+            "comparison_unit": {"const": "absolute_delta_e00_error"},
+            "resolution_rule": {
+              "const": "paired_calibration_and_validation_bootstrap_delta_loss_95ci"
+            },
+            "error_tie_tolerance_delta_e00": {"type": "number", "minimum": 0},
+            "inference_scope": {
+              "const": "paired-bootstrap-uncertainty-propagation-not-population-inference"
+            },
+            "model_or_width_reselected_after_validation": {"const": false}
+          }
+        }
+      }
+    },
+    "delta_loss_inference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definition",
+        "point_estimate",
+        "ci_low",
+        "ci_high",
+        "confidence",
+        "successful_combined_replicates",
+        "calibration_pairing_id",
+        "calibration_prediction_uncertainty_included",
+        "validation_observation_uncertainty_included",
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "definition": {
+          "const": "abs(C192_prediction-observed)-abs(B192_prediction-observed)"
+        },
+        "point_estimate": {"type": ["number", "null"]},
+        "ci_low": {"type": ["number", "null"]},
+        "ci_high": {"type": ["number", "null"]},
+        "confidence": {"const": 0.95},
+        "successful_combined_replicates": {"type": "integer", "minimum": 0},
+        "calibration_pairing_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "calibration_prediction_uncertainty_included": {"type": "boolean"},
+        "validation_observation_uncertainty_included": {"type": "boolean"},
+        "status": {
+          "enum": [
+            "resolved_C192_lower_error",
+            "resolved_B192_lower_error",
+            "equivalent_within_tolerance",
+            "indeterminate",
+            "unresolvable"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "bootstrap_ci_below_negative_tolerance",
+            "bootstrap_ci_above_positive_tolerance",
+            "bootstrap_ci_within_equivalence_band",
+            "bootstrap_ci_overlaps_decision_boundary",
+            "shared_w_sensitivity_warning",
+            "shared_w_sensitivity_unresolved",
+            "validation_unstable",
+            "paired_calibration_bootstrap_unavailable",
+            "insufficient_bootstrap_replicates",
+            "invalid_bootstrap_samples"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"status": {"const": "unresolvable"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "ci_low": {"type": "null"},
+              "ci_high": {"type": "null"},
+              "successful_combined_replicates": {"const": 0},
+              "calibration_prediction_uncertainty_included": {"const": false},
+              "validation_observation_uncertainty_included": {"const": false}
+            }
+          },
+          "else": {
+            "properties": {
+              "point_estimate": {"type": "number"},
+              "ci_low": {"type": "number"},
+              "ci_high": {"type": "number"},
+              "successful_combined_replicates": {"minimum": 2},
+              "calibration_pairing_id": {"type": "string"},
+              "calibration_prediction_uncertainty_included": {"const": true},
+              "validation_observation_uncertainty_included": {"const": true}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "resolved_C192_lower_error"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {"ci_high": {"exclusiveMaximum": -1e-9}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "resolved_B192_lower_error"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {"ci_low": {"exclusiveMinimum": 1e-9}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "equivalent_within_tolerance"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "ci_low": {"minimum": -1e-9},
+              "ci_high": {"maximum": 1e-9}
+            }
+          }
+        }
+      ]
+    },
+    "model_pair_comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first_model", "first_prediction", "first_abs_error", "second_model", "second_prediction", "second_abs_error"],
+      "properties": {
+        "first_model": {"enum": ["B192", "D384"]},
+        "first_prediction": {"type": "number", "exclusiveMinimum": 0},
+        "first_abs_error": {"type": ["number", "null"], "minimum": 0},
+        "second_model": {"enum": ["C192", "B384"]},
+        "second_prediction": {"type": "number", "exclusiveMinimum": 0},
+        "second_abs_error": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "validation_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "block_id",
+        "session_id",
+        "completed_trial_count",
+        "source_trials_sha256",
+        "c80_sim",
+        "c80_ci",
+        "presented_delta_e00_min",
+        "presented_delta_e00_max",
+        "range_bracketed",
+        "w",
+        "w_ci",
+        "fixed_lapse",
+        "fit_converged",
+        "bootstrap_replicates",
+        "bootstrap_successful_replicates",
+        "bootstrap_convergence_rate"
+      ],
+      "properties": {
+        "block_id": {"$ref": "#/$defs/nonempty_string"},
+        "session_id": {"$ref": "#/$defs/nonempty_string"},
+        "completed_trial_count": {"const": 64},
+        "source_trials_sha256": {"$ref": "#/$defs/sha256"},
+        "c80_sim": {"type": "number", "exclusiveMinimum": 0},
+        "c80_ci": {"$ref": "#/$defs/confidence_interval"},
+        "presented_delta_e00_min": {"type": "number", "exclusiveMinimum": 0},
+        "presented_delta_e00_max": {"type": "number", "exclusiveMinimum": 0},
+        "range_bracketed": {"type": "boolean"},
+        "w": {"type": "number", "exclusiveMinimum": 0},
+        "w_ci": {"$ref": "#/$defs/confidence_interval"},
+        "fixed_lapse": {"type": "number", "minimum": 0, "exclusiveMaximum": 0.2},
+        "fit_converged": {"const": true},
+        "bootstrap_replicates": {"type": "integer", "minimum": 1000},
+        "bootstrap_successful_replicates": {"type": "integer", "minimum": 0},
+        "bootstrap_convergence_rate": {"type": "number", "minimum": 0.9, "maximum": 1}
+      }
+    },
+    "confidence_interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ci_low", "ci_high"],
+      "properties": {
+        "ci_low": {"type": "number", "exclusiveMinimum": 0},
+        "ci_high": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

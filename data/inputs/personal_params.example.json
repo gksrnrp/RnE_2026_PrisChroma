@@ -1,0 +1,41 @@
+{
+  "_설명": "구조 설명용 합성 예시다. 실제 참가자 파일은 personal_params.json으로 복사해 로컬에서만 작성한다.",
+  "_역치_단위": "ΔE00. 그 조건에서 두 색을 구별하는 데 필요한 최소 색차.",
+  "_아직_안_쟀으면": "threshold를 null로 둔다. 비워 둬도 파일은 정상으로 읽힌다.",
+  "participants": [
+    {
+      "participant_id": "P_SYNTHETIC_EXAMPLE",
+      "cvd_type": "deutan",
+      "severity": 0.5,
+      "reference_threshold": null,
+      "_reference_threshold_설명": "실제 선행 측정값을 저장소 예시에 넣지 않는다.",
+      "threshold_conditions": [
+        {
+          "_조건": "얇음 x 가까움",
+          "stroke_width_px": 6.0,
+          "distance_px": 81.4,
+          "threshold": null
+        },
+        {
+          "_조건": "얇음 x 멂",
+          "stroke_width_px": 6.0,
+          "distance_px": 158.5,
+          "threshold": null
+        },
+        {
+          "_조건": "보통 x 가까움",
+          "stroke_width_px": 15.62,
+          "distance_px": 81.4,
+          "threshold": null
+        },
+        {
+          "_조건": "보통 x 멂",
+          "stroke_width_px": 15.62,
+          "distance_px": 158.5,
+          "threshold": null
+        }
+      ],
+      "notes": "굵기와 거리 값은 results/conditions.md에서 가져온다. 실제 이미지로 다시 측정하면 이 숫자도 바뀐다."
+    }
+  ]
+}

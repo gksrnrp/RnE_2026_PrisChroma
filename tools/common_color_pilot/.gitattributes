@@ -1,0 +1,5 @@
+# Preserve provenance hashes across clone/platform newline conversion.
+source_conditions_v1.json -text
+legacy_color_math.py -text
+common_conditions.json text eol=lf
+*.cmd text eol=crlf

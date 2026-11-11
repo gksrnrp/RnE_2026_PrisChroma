@@ -1,0 +1,576 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "human/experiment_config.schema.json",
+  "title": "Single-participant human line-width experiment configuration",
+  "description": "Schema validation never grants permission to collect human data. A separate readiness/runtime gate must verify every measured and approved value. Templates keep human_data_collection_allowed=false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "config_version",
+    "status",
+    "human_data_collection_allowed",
+    "task",
+    "observer_profile",
+    "display",
+    "line",
+    "coordinates",
+    "color_design",
+    "calibration",
+    "validation",
+    "sampling",
+    "model_plan",
+    "privacy",
+    "journal",
+    "timing"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "config_version": {"$ref": "#/$defs/nonempty_string"},
+    "status": {"enum": ["template", "frozen", "preregistered"]},
+    "human_data_collection_allowed": {"type": "boolean"},
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "layout",
+        "choice_count",
+        "practice_feedback",
+        "main_feedback"
+      ],
+      "properties": {
+        "type": {"const": "4afc_odd_one_out"},
+        "layout": {"const": "2x2"},
+        "choice_count": {"const": 4},
+        "practice_feedback": {"type": "boolean"},
+        "main_feedback": {"const": false}
+      }
+    },
+    "observer_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant_id",
+        "cvd_type",
+        "severity",
+        "severity_source",
+        "severity_session_id",
+        "fixed_lapse",
+        "lapse_source",
+        "lapse_session_id"
+      ],
+      "properties": {
+        "participant_id": {"$ref": "#/$defs/participant_id"},
+        "cvd_type": {"enum": ["protan", "deutan"]},
+        "severity": {"type": "number", "minimum": 0, "maximum": 1},
+        "severity_source": {"$ref": "#/$defs/nonempty_string"},
+        "severity_session_id": {"$ref": "#/$defs/nonempty_string"},
+        "fixed_lapse": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 0.2
+        },
+        "lapse_source": {"$ref": "#/$defs/nonempty_string"},
+        "lapse_session_id": {"$ref": "#/$defs/nonempty_string"}
+      }
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "width_mm",
+        "resolution_width_px",
+        "resolution_height_px",
+        "os_scale_percent",
+        "app_scale_percent",
+        "viewing_distance_mm",
+        "background_rgb",
+        "color_profile",
+        "colorimetry_policy",
+        "calibration_id",
+        "brightness_percent",
+        "luminance_cd_m2",
+        "luminance_measurement_method",
+        "width_measurement_method",
+        "viewing_distance_control",
+        "operating_system",
+        "native_gui_runtime",
+        "pixel_mapping_verification",
+        "ambient_light_condition",
+        "ambient_light_measurement_method",
+        "night_mode_disabled"
+      ],
+      "properties": {
+        "model": {"$ref": "#/$defs/nonempty_string"},
+        "width_mm": {"type": "number", "exclusiveMinimum": 0},
+        "resolution_width_px": {"type": "integer", "minimum": 1},
+        "resolution_height_px": {"type": "integer", "minimum": 1},
+        "os_scale_percent": {"type": "number", "exclusiveMinimum": 0},
+        "app_scale_percent": {"type": "number", "exclusiveMinimum": 0},
+        "viewing_distance_mm": {"type": "number", "exclusiveMinimum": 0},
+        "background_rgb": {"$ref": "#/$defs/rgb"},
+        "color_profile": {"$ref": "#/$defs/nonempty_string"},
+        "colorimetry_policy": {
+          "enum": [
+            "measured-display-colorimetry",
+            "nominal-srgb-device-specific"
+          ]
+        },
+        "calibration_id": {"$ref": "#/$defs/nonempty_string"},
+        "brightness_percent": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "luminance_cd_m2": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
+        "luminance_measurement_method": {"$ref": "#/$defs/nonempty_string"},
+        "width_measurement_method": {"$ref": "#/$defs/nonempty_string"},
+        "viewing_distance_control": {"$ref": "#/$defs/nonempty_string"},
+        "operating_system": {"$ref": "#/$defs/nonempty_string"},
+        "native_gui_runtime": {"$ref": "#/$defs/nonempty_string"},
+        "pixel_mapping_verification": {"$ref": "#/$defs/nonempty_string"},
+        "ambient_light_condition": {"$ref": "#/$defs/nonempty_string"},
+        "ambient_light_measurement_method": {"$ref": "#/$defs/nonempty_string"},
+        "night_mode_disabled": {"const": true}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"luminance_cd_m2": {"type": "null"}},
+            "required": ["luminance_cd_m2"]
+          },
+          "then": {
+            "properties": {
+              "luminance_measurement_method": {
+                "const": "not_measured_no_luminance_meter"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "colorimetry_policy": {"const": "measured-display-colorimetry"}
+            },
+            "required": ["colorimetry_policy"]
+          },
+          "then": {
+            "properties": {
+              "luminance_cd_m2": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        }
+      ]
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "length_px",
+        "orientation_deg",
+        "cap",
+        "antialiasing",
+        "renderer",
+        "pixel_snapping"
+      ],
+      "properties": {
+        "length_px": {"type": "integer", "minimum": 1},
+        "orientation_deg": {"type": "number", "minimum": -360, "maximum": 360},
+        "cap": {"enum": ["butt", "round", "square"]},
+        "antialiasing": {"$ref": "#/$defs/nonempty_string"},
+        "renderer": {"$ref": "#/$defs/nonempty_string"},
+        "pixel_snapping": {"$ref": "#/$defs/nonempty_string"}
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positions_px", "center_spacing_px"],
+      "properties": {
+        "positions_px": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/point"}
+        },
+        "center_spacing_px": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "color_design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stimulus_family_id",
+        "midpoint_lab",
+        "direction_lab",
+        "symmetric_about_midpoint",
+        "gamut_policy",
+        "rgb_quantization",
+        "target_absolute_tolerance_delta_e00",
+        "target_relative_tolerance",
+        "search_grid_steps"
+      ],
+      "properties": {
+        "stimulus_family_id": {"$ref": "#/$defs/nonempty_string"},
+        "midpoint_lab": {"$ref": "#/$defs/lab"},
+        "direction_lab": {"$ref": "#/$defs/lab"},
+        "symmetric_about_midpoint": {"const": true},
+        "gamut_policy": {"const": "reject"},
+        "rgb_quantization": {"const": "nearest_8bit"},
+        "target_absolute_tolerance_delta_e00": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Absolute acceptance tolerance for generating frozen stimulus levels after 8-bit quantization. It is not an upper bound on a path-correction candidate's target overshoot."
+        },
+        "target_relative_tolerance": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 1,
+          "description": "Relative acceptance tolerance for generating frozen stimulus levels after 8-bit quantization. It does not relax or upper-bound the path-correction C80 constraint."
+        },
+        "search_grid_steps": {"type": "integer", "minimum": 32}
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["widths", "trials_per_width", "session_block_count"],
+      "properties": {
+        "widths": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/rendered_width"}
+        },
+        "trials_per_width": {
+          "const": [96, 192, 96],
+          "description": "Counts correspond to widths in ascending order."
+        },
+        "session_block_count": {"enum": [4, 6]}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidates",
+        "independent_blocks",
+        "delta_e00_level_count",
+        "trials_per_block",
+        "randomization"
+      ],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "geometric_target_px",
+              "rendered_width_px",
+              "width_deg"
+            ],
+            "properties": {
+              "geometric_target_px": {"type": "number", "exclusiveMinimum": 0},
+              "rendered_width_px": {"type": "integer", "minimum": 1},
+              "width_deg": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        },
+        "independent_blocks": {"const": 3},
+        "delta_e00_level_count": {"const": 8},
+        "trials_per_block": {"const": 64},
+        "randomization": {"$ref": "#/$defs/nonempty_string"}
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delta_e00_levels", "randomization", "practice_trials"],
+      "properties": {
+        "delta_e00_levels": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        },
+        "randomization": {"const": "balanced-mixed-width-session-blocks-within-block-shuffle"},
+        "practice_trials": {"type": "integer", "minimum": 0}
+      }
+    },
+    "model_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "models",
+        "include_szafir_transfer",
+        "szafir_probability_coordinate"
+      ],
+      "properties": {
+        "models": {"const": ["B192", "B384", "C192", "D384"]},
+        "include_szafir_transfer": {"type": "boolean"},
+        "szafir_probability_coordinate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved",
+        "approval_id",
+        "approved_at_utc",
+        "consent_version",
+        "pseudonymization",
+        "storage_policy"
+      ],
+      "properties": {
+        "approved": {"type": "boolean"},
+        "approval_id": {"$ref": "#/$defs/nonempty_string"},
+        "approved_at_utc": {"$ref": "#/$defs/utc_datetime"},
+        "consent_version": {"$ref": "#/$defs/nonempty_string"},
+        "pseudonymization": {"$ref": "#/$defs/nonempty_string"},
+        "storage_policy": {"$ref": "#/$defs/nonempty_string"}
+      }
+    },
+    "journal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "storage_policy",
+        "root_repository_relative",
+        "phase_files",
+        "session_ids"
+      ],
+      "properties": {
+        "storage_policy": {"const": "repository-relative-gitignored"},
+        "root_repository_relative": {"const": "data/experiment/raw"},
+        "phase_files": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["practice", "calibration", "validation"],
+          "properties": {
+            "practice": {"$ref": "#/$defs/journal_filename"},
+            "calibration": {"$ref": "#/$defs/journal_filename"},
+            "validation": {"$ref": "#/$defs/journal_filename"}
+          }
+        },
+        "session_ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["practice", "calibration", "validation"],
+          "properties": {
+            "practice": {"$ref": "#/$defs/session_id"},
+            "calibration": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "1": {"$ref": "#/$defs/session_id"},
+                "2": {"$ref": "#/$defs/session_id"},
+                "3": {"$ref": "#/$defs/session_id"},
+                "4": {"$ref": "#/$defs/session_id"},
+                "5": {"$ref": "#/$defs/session_id"},
+                "6": {"$ref": "#/$defs/session_id"}
+              }
+            },
+            "validation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["V01", "V02", "V03"],
+              "properties": {
+                "V01": {"$ref": "#/$defs/session_id"},
+                "V02": {"$ref": "#/$defs/session_id"},
+                "V03": {"$ref": "#/$defs/session_id"}
+              }
+            }
+          }
+        }
+      },
+      "description": "Only repository-relative, gitignored storage is supported. Each config-bound phase has one canonical JSONL and every block has a preregistered unique session_id. Runtime validation additionally rejects traversal, separators in filenames, duplicate filenames, and duplicate IDs."
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixation_ms",
+        "inter_trial_ms",
+        "response_deadline_policy",
+        "response_deadline_ms",
+        "active_trial_abort_policy",
+        "max_session_duration_min",
+        "incomplete_block_time_limit_policy",
+        "planned_break_interval_trials",
+        "planned_break_duration_min",
+        "stop_rules",
+        "resume_policy"
+      ],
+      "properties": {
+        "fixation_ms": {"type": "number", "exclusiveMinimum": 0},
+        "inter_trial_ms": {"type": "number", "exclusiveMinimum": 0},
+        "response_deadline_policy": {"const": "unlimited"},
+        "response_deadline_ms": {"type": "null"},
+        "active_trial_abort_policy": {"const": "invalidate-analysis-no-retry"},
+        "max_session_duration_min": {"type": "number", "exclusiveMinimum": 0},
+        "incomplete_block_time_limit_policy": {
+          "const": "invalidate-participant-dataset-no-retry"
+        },
+        "planned_break_interval_trials": {"type": "integer", "minimum": 1},
+        "planned_break_duration_min": {"type": "number", "exclusiveMinimum": 0},
+        "stop_rules": {"$ref": "#/$defs/nonempty_string"},
+        "resume_policy": {"const": "append-only-retry-incomplete"}
+      },
+      "description": "This study uses unlimited responses. Any abort after an active stimulus invalidates confirmatory analysis and may not be retried. A block left incomplete at the preregistered session limit invalidates the participant dataset rather than being spliced across sessions."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"human_data_collection_allowed": {"const": true}},
+        "required": ["human_data_collection_allowed"]
+      },
+      "then": {
+        "properties": {
+          "status": {"enum": ["frozen", "preregistered"]},
+          "privacy": {
+            "properties": {"approved": {"const": true}},
+            "required": ["approved"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"privacy": {"properties": {"approved": {"const": false}}}},
+        "required": ["privacy"]
+      },
+      "then": {
+        "properties": {"human_data_collection_allowed": {"const": false}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "calibration": {
+            "properties": {"session_block_count": {"const": 4}},
+            "required": ["session_block_count"]
+          }
+        },
+        "required": ["calibration"]
+      },
+      "then": {
+        "properties": {
+          "journal": {
+            "properties": {
+              "session_ids": {
+                "properties": {
+                  "calibration": {
+                    "required": ["1", "2", "3", "4"],
+                    "minProperties": 4,
+                    "maxProperties": 4
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "calibration": {
+            "properties": {"session_block_count": {"const": 6}},
+            "required": ["session_block_count"]
+          }
+        },
+        "required": ["calibration"]
+      },
+      "then": {
+        "properties": {
+          "journal": {
+            "properties": {
+              "session_ids": {
+                "properties": {
+                  "calibration": {
+                    "required": ["1", "2", "3", "4", "5", "6"],
+                    "minProperties": 6,
+                    "maxProperties": 6
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonempty_string": {"type": "string", "minLength": 1},
+    "participant_id": {"type": "string", "pattern": "^P[0-9A-Za-z_-]+$"},
+    "journal_filename": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.jsonl$"
+    },
+    "session_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+    "utc_datetime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "rgb": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"type": "integer", "minimum": 0, "maximum": 255},
+        {"type": "integer", "minimum": 0, "maximum": 255},
+        {"type": "integer", "minimum": 0, "maximum": 255}
+      ],
+      "items": false
+    },
+    "lab": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"type": "number", "minimum": 0, "maximum": 100},
+        {"type": "number"},
+        {"type": "number"}
+      ],
+      "items": false
+    },
+    "point": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"type": "number", "minimum": 0},
+        {"type": "number", "minimum": 0}
+      ],
+      "items": false
+    },
+    "rendered_width": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_px", "width_deg"],
+      "properties": {
+        "width_px": {"type": "integer", "minimum": 1},
+        "width_deg": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

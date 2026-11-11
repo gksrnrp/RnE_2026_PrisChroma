@@ -1,0 +1,8 @@
+numpy>=2.0
+
+# Stage 2 image detection and measurement
+scikit-image>=0.24   # SLIC segmentation
+scipy>=1.11          # distance transform for stroke-width estimation
+pillow>=10.0         # image I/O
+matplotlib>=3.8      # report figures
+jsonschema>=4.23     # shared data-contract validation

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "validation_pairs.schema.json",
+  "title": "Draft held-out correction color pairs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "data_origin", "interpretation_scope", "pairs"],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "data_origin": {"const": "synthetic"},
+    "interpretation_scope": {"const": "software_pipeline_only_not_behavioral_validation"},
+    "pairs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pair_id", "rgb_a", "rgb_b", "palette", "source_case", "selection_split", "notes"],
+        "properties": {
+          "pair_id": {"type": "string", "minLength": 1},
+          "rgb_a": {"$ref": "#/$defs/rgb"},
+          "rgb_b": {"$ref": "#/$defs/rgb"},
+          "palette": {"type": "array", "items": {"$ref": "#/$defs/rgb"}},
+          "source_case": {"type": "string", "minLength": 1},
+          "selection_split": {"const": "synthetic_pipeline_check"},
+          "notes": {"type": "string"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rgb": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "integer", "minimum": 0, "maximum": 255}
+    }
+  }
+}
