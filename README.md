@@ -246,6 +246,7 @@ python realtime_demo.py --profile <사용자설정> --display <화면설정> --s
 | 별도 검증 시행의 절차 | [docs/validation-workflow.md](docs/validation-workflow.md) |
 | 색각 시뮬레이션과 색차 계산 | [`src/machado.py`](src/machado.py), [`src/distance.py`](src/distance.py), [`src/color_spaces.py`](src/color_spaces.py) |
 | 최소 색이동 탐색 | [`src/path_correction.py`](src/path_correction.py), [`src/correction.py`](src/correction.py) |
+| 실제로 언제부터 어떻게 작업했나 | [`research-log`](../../tree/research-log) 브랜치 (팀 작업 저장소의 2026-08-20부터의 기록, 참가자 원자료와 개인정보 제외). 나머지 브랜치는 당시의 작업 갈래 |
 
 이 문서의 수치는 연구보고서의 값이다. 이 저장소에는 코드, 공통 설정, 합성 예제만 있고 아래 자료는 없으므로, 저장소만으로 같은 수치가 다시 나오지는 않는다.
 
